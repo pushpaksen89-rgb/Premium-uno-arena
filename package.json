@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {"start": "node server.js" ,
+  "scripts": {
+    "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -12,6 +13,7 @@
   "type": "commonjs",
   "dependencies": {
     "express": "^5.2.1",
+    "simple-peer": "^9.11.1",
     "socket.io": "^4.8.3"
   }
 }
