@@ -119,8 +119,8 @@
             <button onclick="document.getElementById('celebrationBox').style.display='none'" style="max-width: 150px;">Return Arena</button>
         </div>
     </div>
-
-    <script>
+<script>
+        const socket = io();
         let localStream;
         let peers = {};
         let pendingCardIndex = null;
@@ -134,14 +134,20 @@
             document.getElementById('authContainer').style.display = 'none';
             document.getElementById('gameArea').style.display = 'block';
             
-            // Activate Audio micro links
+            // Activate Audio micro links safely without freezing the button
             initiateVoiceAudioSystems();
         }
 
-        // --- WEB-RTC AUDIO CORE MECHANICS ---
+        // --- SAFE WEB-RTC AUDIO MECHANICS ---
         async function initiateVoiceAudioSystems() {
             try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    document.getElementById('voiceStatus').innerText = "Voice chat not supported on this browser connection.";
+                    return;
+                }
+
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                document.getElementById('voiceStatus').innerText = "Voice Connected! 🎙️";
                 socket.emit('voice-join');
                 
                 socket.on('voice-peer-joined', (peerId) => {
@@ -153,27 +159,33 @@
                     peers[data.from].signal(data.signal);
                 });
             } catch (err) {
-                document.getElementById('voiceStatus').innerText = "Audio Muted/Unsupported";
+                console.log("Audio stream blocked or rejected:", err);
+                document.getElementById('voiceStatus').innerText = "Audio Muted (Microphone Permission Required)";
             }
         }
 
         function initiatePeerConnection(peerId, initiator) {
-            const peer = new SimplePeer({ initiator: initiator, trickle: false, stream: localStream });
-            
-            peer.on('signal', (signal) => {
-                socket.emit('voice-signal', { to: peerId, signal: signal });
-            });
+            try {
+                const peer = new SimplePeer({ initiator: initiator, trickle: false, stream: localStream });
+                
+                peer.on('signal', (signal) => {
+                    socket.emit('voice-signal', { to: peerId, signal: signal });
+                });
 
-            peer.on('stream', (stream) => {
-                const audio = document.createElement('audio');
-                audio.srcObject = stream;
-                audio.play();
-            });
+                peer.on('stream', (stream) => {
+                    const audio = document.createElement('audio');
+                    audio.srcObject = stream;
+                    audio.play();
+                });
 
-            peers[peerId] = peer;
+                peers[peerId] = peer;
+            } catch (e) {
+                console.error("Peer connection failed:", e);
+            }
         }
 
         function toggleMuteState() {
+            if (!localStream) return;
             const enabled = localStream.getAudioTracks()[0].enabled;
             if (enabled) {
                 localStream.getAudioTracks()[0].enabled = false;
@@ -193,8 +205,10 @@
 
             let val = card.value;
             let displayVal = val;
-            if(val === 'Skip') displayVal = '⊘'; if(val === 'Reverse') displayVal = '⇄';
-            if(val === 'Draw2') displayVal = '+2'; if(val === 'Draw4') displayVal = '+4';
+            if(val === 'Skip') displayVal = '⊘'; 
+            if(val === 'Reverse') displayVal = '⇄';
+            if(val === 'Draw2') displayVal = '+2'; 
+            if(val === 'Draw4') displayVal = '+4';
             if(val === 'Wild' && card.color === 'Wild') displayVal = 'W';
 
             cardDiv.innerHTML = `
@@ -222,15 +236,21 @@
 
         socket.on('gameStateUpdate', (data) => {
             const indicator = document.getElementById('turnIndicator');
-            if(data.isYourTurn) { indicator.innerText = "YOUR TURN! Play a matching card."; indicator.style.color = "#2ed573"; }
-            else { indicator.innerText = `${data.currentTurnName}'s move...`; indicator.style.color = "#ffffff"; }
+            if(data.isYourTurn) { 
+                indicator.innerText = "YOUR TURN! Play a matching card."; 
+                indicator.style.color = "#2ed573"; 
+            } else { 
+                indicator.innerText = `${data.currentTurnName}'s move...`; 
+                indicator.style.color = "#ffffff"; 
+            }
 
-            // Active Target Color Warning label
             const alertLabel = document.getElementById('wildColorAlert');
             if (data.activeWildColor) {
                 alertLabel.innerText = `Active Wild Color Target: ${data.activeWildColor.toUpperCase()}`;
                 alertLabel.style.color = `var(--${data.activeWildColor.toLowerCase()})`;
-            } else { alertLabel.innerText = ''; }
+            } else { 
+                alertLabel.innerText = ''; 
+            }
 
             const targetTop = document.getElementById('topCardTarget');
             targetTop.innerHTML = '';
@@ -246,24 +266,33 @@
             trackBox.innerHTML = '';
             data.playerListSnapshot.forEach(p => {
                 const el = document.createElement('div');
-                el.style.padding = '10px 15px'; el.style.background = p.active ? '#ff3838' : '#151528'; el.style.borderRadius = '8px';
+                el.style.padding = '10px 15px'; 
+                el.style.background = p.active ? '#ff3838' : '#151528'; 
+                el.style.borderRadius = '8px';
                 el.innerHTML = `<strong>${p.name}</strong>: ${p.finished ? '🏆 OUT' : p.count + ' cards'}`;
                 trackBox.appendChild(el);
             });
 
-            // --- ADMIN PACK DISPLAY HUB ---
             if(data.allPlayersHandsSnapshot) {
                 document.getElementById('adminDashboard').style.display = 'block';
-                const container = document.getElementById('adminPlayerStream'); container.innerHTML = '';
+                const container = document.getElementById('adminPlayerStream'); 
+                container.innerHTML = '';
                 data.allPlayersHandsSnapshot.forEach(p => {
                     const div = document.createElement('div');
-                    div.style.background = 'rgba(255,255,255,0.04)'; div.style.padding = '10px'; div.style.margin = '15px 0'; div.style.borderRadius = '8px';
-                    div.style.display = 'flex'; div.style.justifyContent = 'space-between';
+                    div.style.background = 'rgba(255,255,255,0.04)'; 
+                    div.style.padding = '10px'; 
+                    div.style.margin = '15px 0'; 
+                    div.style.borderRadius = '8px';
+                    div.style.display = 'flex'; 
+                    div.style.justifyContent = 'space-between';
                     
                     let handItemsStr = p.hand.map(c => `[${c.color} ${c.value}]`).join(', ') || 'No Cards';
-                    div.innerHTML = `<div><strong>📡 ${p.name}</strong><br><span style="color:#00ecff">${handItemsStr}</span></div>
-                        <div><button onclick="socket.emit('adminDrainHand','${p.id}')" style="background:#ff0055; width:auto; padding:5px 10px; margin-right:5px;">Instant Win</button>
-                        <button onclick="socket.emit('adminInjectCards','${p.id}')" style="background:#ffa502; width:auto; padding:5px 10px;">+4 Hit</button></div>`;
+                    div.innerHTML = `
+                        <div><strong>📡 ${p.name}</strong><br><span style="color:#00ecff">${handItemsStr}</span></div>
+                        <div>
+                            <button onclick="socket.emit('adminDrainHand','${p.id}')" style="background:#ff0055; width:auto; padding:5px 10px; margin-right:5px;">Instant Win</button>
+                            <button onclick="socket.emit('adminInjectCards','${p.id}')" style="background:#ffa502; width:auto; padding:5px 10px;">+4 Hit</button>
+                        </div>`;
                     container.appendChild(div);
                 });
             }
@@ -271,20 +300,29 @@
 
         socket.on('systemNotification', (msg) => {
             const feed = document.getElementById('sysNotify');
-            feed.innerText = msg; feed.style.display = 'block';
+            feed.innerText = msg; 
+            feed.style.display = 'block';
             setTimeout(() => { feed.style.display = 'none'; }, 4000);
         });
 
         socket.on('celebrateWinner', (data) => {
             document.getElementById('celebWinnerMsg').innerText = `🎉 ${data.winnerName} cleared their hand! 🎉`;
-            const box = document.getElementById('standingsBox'); box.innerHTML = '<h4>Leaderboard Status:</h4>';
+            const box = document.getElementById('standingsBox'); 
+            box.innerHTML = '<h4>Leaderboard Status:</h4>';
             data.standings.forEach((name, idx) => { box.innerHTML += `<p>${idx + 1}. ${name} 🏆</p>`; });
             document.getElementById('celebrationBox').style.display = 'flex';
         });
 
-        socket.on('updatePlayers', (list) => { if(list.length >= 2) document.getElementById('startBtn').style.display = 'block'; });
+        socket.on('updatePlayers', (list) => { 
+            if(list.length >= 2) document.getElementById('startBtn').style.display = 'block'; 
+        });
+        
         socket.on('errorAlert', (msg) => alert(msg));
-        socket.on('gameOverEvent', (data) => { alert('Match complete! Final ranking locked.'); location.reload(); });
+        
+        socket.on('gameOverEvent', (data) => { 
+            alert('Match complete! Final ranking locked.'); 
+            location.reload(); 
+        });
     </script>
 </body>
 </html>
