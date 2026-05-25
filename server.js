@@ -1,132 +1,219 @@
 const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const http = require('http').createServer(app);
+const io = require('socket.io')(http, {
+    cors: { origin: "*" }
+});
 
-app.use(express.static(__dirname + '/public'));
+app.use(express.static('public'));
 
-let gameState = {
-    players: {}, // ID: { id, name, hand: [], isHost: bool }
-    deck: [],
-    discardPile: [],
-    currentTurn: null,
-    playerOrder: [],
-    colorOverride: null
-};
+// --- UNO GAME STATE VARIABLE MATRIX ---
+let players = []; 
+let deck = [];
+let discardPile = [];
+let currentTurnIndex = 0;
+let gameDirection = 1; // 1 means forward, -1 means reverse
+let gameStarted = false;
 
-function generateUnoDeck() {
-    const colors = ['red', 'blue', 'green', 'yellow'];
-    let deck = [];
-    colors.forEach(c => {
-        for(let i=0; i<=9; i++) deck.push({color: c, value: i.toString(), id: Math.random()});
-        ['Skip', 'Reverse', 'Draw 2'].forEach(v => deck.push({color: c, value: v, id: Math.random()}));
-    });
-    for(let i=0; i<4; i++) {
-        deck.push({color: 'wild', value: 'Wild', id: Math.random()});
-        deck.push({color: 'wild', value: 'Wild Draw 4', id: Math.random()});
+// Generate a standard UNO deck
+function createDeck() {
+    const colors = ['Red', 'Blue', 'Yellow', 'Green'];
+    const values = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'Skip', 'Reverse', 'Draw2'];
+    let newDeck = [];
+
+    for (let color of colors) {
+        for (let value of values) {
+            // Add cards to deck
+            newDeck.push({ color, value });
+            if (value !== '0') newDeck.push({ color, value }); // UNO has two of numbers 1-9 and actions
+        }
     }
-    return deck.sort(() => Math.random() - 0.5);
+    // Add Wild cards
+    for (let i = 0; i < 4; i++) {
+        newDeck.push({ color: 'Wild', value: 'Wild' });
+        newDeck.push({ color: 'Wild', value: 'Draw4' });
+    }
+    return shuffle(newDeck);
 }
 
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
+
+function advanceTurn(steps = 1) {
+    if (players.length === 0) return;
+    currentTurnIndex = (currentTurnIndex + (steps * gameDirection) + players.length) % players.length;
+}
+
+// --- SOCKET CONNECTIONS ENGINE ---
 io.on('connection', (socket) => {
-    socket.on('joinGame', ({ name, isHostSecret }) => {
-        const isHost = isHostSecret === "ADMIN_GOD_MODE";
+    console.log(`User connected: ${socket.id}`);
+
+    socket.on('joinGame', (username) => {
+        if (gameStarted) {
+            socket.emit('errorAlert', 'Game has already started!');
+            return;
+        }
         
-        gameState.players[socket.id] = {
+        // Setup player profile structure
+        const playerProfile = {
             id: socket.id,
-            name: name,
-            hand: [],
-            isHost: isHost
+            name: username || `Guest_${socket.id.substring(0,4)}`,
+            hand: []
         };
         
-        if (!gameState.playerOrder.includes(socket.id)) {
-            gameState.playerOrder.push(socket.id);
-        }
-
-        if (gameState.deck.length === 0) {
-            gameState.deck = generateUnoDeck();
-            gameState.discardPile.push(gameState.deck.pop());
-            gameState.currentTurn = socket.id;
-        }
-
-        // Deal 7 cards initially
-        for(let i=0; i<7; i++) {
-            if(gameState.deck.length > 0) gameState.players[socket.id].hand.push(gameState.deck.pop());
-        }
-
-        broadcastState();
+        players.push(playerProfile);
+        io.emit('updatePlayers', players.map(p => ({ id: p.id, name: p.name, cardCount: p.hand.length })));
     });
 
-    socket.on('playCard', ({ cardId }) => {
-        if (gameState.currentTurn !== socket.id) return;
-        const player = gameState.players[socket.id];
-        const cardIdx = player.hand.findIndex(c => c.id === cardId);
+    socket.on('startGameSignal', () => {
+        if (players.length < 2) {
+            socket.emit('errorAlert', 'You need at least 2 players to start!');
+            return;
+        }
         
-        if (cardIdx !== -1) {
-            const playedCard = player.hand.splice(cardIdx, 1)[0];
-            gameState.discardPile.push(playedCard);
-            gameState.colorOverride = null; // reset dynamic colors
-            
-            // Turn progression logic
-            let nextIdx = (gameState.playerOrder.indexOf(socket.id) + 1) % gameState.playerOrder.length;
-            gameState.currentTurn = gameState.playerOrder[nextIdx];
-            broadcastState();
+        gameStarted = true;
+        deck = createDeck();
+        
+        // Deal 7 cards to each player profile
+        players.forEach(player => {
+            player.hand = deck.splice(0, 7);
+        });
+
+        // Flip top card (ensure it's not a wild card to start simple)
+        let startingCard = deck.pop();
+        while (startingCard.color === 'Wild') {
+            deck.unshift(startingCard);
+            startingCard = deck.pop();
         }
+        discardPile.push(startingCard);
+        currentTurnIndex = 0;
+        gameDirection = 1;
+
+        updateEntireClientState();
     });
 
-    socket.on('drawCard', () => {
-        if (gameState.currentTurn !== socket.id) return;
-        if(gameState.deck.length === 0) gameState.deck = generateUnoDeck();
-        gameState.players[socket.id].hand.push(gameState.deck.pop());
-        broadcastState();
-    });
+    socket.on('playCardRequest', (cardIndex) => {
+        const player = players.find(p => p.id === socket.id);
+        if (!player) return;
 
-    // ================================================
-    // GOD-MODE ADVANTAGE ROUTER (HOST POWER MATRIX)
-    // ================================================
-    socket.on('hostCommand', (cmd) => {
-        if (!gameState.players[socket.id] || !gameState.players[socket.id].isHost) return;
-
-        const { action, targetId, data } = cmd;
-
-        if (action === 'STACK_MY_DECK') {
-            // Force add 3 powerful wild cards into host's hand instantly
-            gameState.players[socket.id].hand.push(
-                { color: 'wild', value: 'Wild Draw 4', id: Math.random() },
-                { color: 'wild', value: 'Wild Draw 4', id: Math.random() },
-                { color: 'wild', value: 'Wild', id: Math.random() }
-            );
-        } 
-        else if (action === 'SABOTAGE_PLAYER') {
-            // Force a target player to draw 4 penalty cards secretly
-            if (gameState.players[targetId]) {
-                for(let i=0; i<4; i++) gameState.players[targetId].hand.push(gameState.deck.pop());
-            }
-        } 
-        else if (action === 'HIJACK_TURN') {
-            // Instantly seize control of the game flow
-            gameState.currentTurn = socket.id;
-        } 
-        else if (action === 'NUKE_HAND') {
-            // Clear out a rival's cards entirely so they lose or drop out
-            if (gameState.players[targetId]) gameState.players[targetId].hand = [];
+        // RULE 1: Check if it's actually their turn
+        if (players[currentTurnIndex].id !== socket.id) {
+            socket.emit('errorAlert', "Wait for your turn! Don't play out of sequence.");
+            return;
         }
 
-        broadcastState();
+        const cardToPlay = player.hand[cardIndex];
+        const topCard = discardPile[discardPile.length - 1];
+
+        // RULE 2: Validate if the card choice is legal under UNO guidelines
+        const isValidMove = 
+            cardToPlay.color === 'Wild' || 
+            cardToPlay.color === topCard.color || 
+            cardToPlay.value === topCard.value;
+
+        if (!isValidMove) {
+            socket.emit('errorAlert', `Invalid Card! Must match ${topCard.color} or ${topCard.value}.`);
+            return;
+        }
+
+        // Move is completely legal! Execute game mechanics
+        player.hand.splice(cardIndex, 1);
+        discardPile.push(cardToPlay);
+
+        // RULE 3: Process Special Action Modifiers
+        let turnSteps = 1;
+
+        if (cardToPlay.value === 'Skip') {
+            turnSteps = 2; // Pass over the next player completely
+        } else if (cardToPlay.value === 'Reverse') {
+            gameDirection *= -1; // Invert loop direction tracking variable
+            if (players.length === 2) turnSteps = 2; // In 2-player mode, Reverse acts like Skip
+        } else if (cardToPlay.value === 'Draw2') {
+            advanceTurn(1);
+            const victim = players[currentTurnIndex];
+            victim.hand.push(...deck.splice(0, 2));
+            turnSteps = 1; 
+        } else if (cardToPlay.value === 'Draw4') {
+            advanceTurn(1);
+            const victim = players[currentTurnIndex];
+            victim.hand.push(...deck.splice(0, 4));
+            turnSteps = 1;
+        }
+
+        // Check victory status
+        if (player.hand.length === 0) {
+            io.emit('gameOverEvent', `${player.name} has played their last card and won the match!`);
+            gameStarted = false;
+            return;
+        }
+
+        advanceTurn(turnSteps);
+        updateEntireClientState();
+    });
+
+    socket.on('drawCardRequest', () => {
+        if (!gameStarted) return;
+        
+        // Validate if it is their turn to pull from deck
+        if (players[currentTurnIndex].id !== socket.id) {
+            socket.emit('errorAlert', "It's not your turn to draw a card!");
+            return;
+        }
+
+        const player = players[currentTurnIndex];
+        
+        // Recycle discard pile if drawing deck runs empty
+        if (deck.length === 0) {
+            const topCard = discardPile.pop();
+            deck = shuffle(discardPile);
+            discardPile = [topCard];
+        }
+
+        // Draw 1 card
+        const drawnCard = deck.pop();
+        player.hand.push(drawnCard);
+
+        // Advance turn to next opponent automatically after drawing
+        advanceTurn(1);
+        updateEntireClientState();
+    });
+
+    // Handle Admin Master Engine overrides from your dashboard
+    socket.on('adminForceCardDrain', (targetPlayerId) => {
+        const target = players.find(p => p.id === targetPlayerId);
+        if (target && target.hand.length > 0) {
+            deck.push(...target.hand);
+            target.hand = []; // Force dump their cards to mess with them
+            updateEntireClientState();
+        }
     });
 
     socket.on('disconnect', () => {
-        gameState.playerOrder = gameState.playerOrder.filter(id => id !== socket.id);
-        delete gameState.players[socket.id];
-        broadcastState();
+        players = players.filter(p => p.id !== socket.id);
+        if (players.length === 0) gameStarted = false;
+        io.emit('updatePlayers', players.map(p => ({ id: p.id, name: p.name, cardCount: p.hand.length })));
     });
 });
 
-function broadcastState() {
-    io.emit('stateUpdate', gameState);
+// Sync data packets safely across all separate clients
+function updateEntireClientState() {
+    const topCard = discardPile[discardPile.length - 1];
+    
+    players.forEach(player => {
+        io.to(player.id).emit('gameStateUpdate', {
+            yourHand: player.hand,
+            topCard: topCard,
+            currentTurnName: players[currentTurnIndex].name,
+            isYourTurn: players[currentTurnIndex].id === player.id,
+            playerListSnapshot: players.map(p => ({ name: p.name, count: p.hand.length, active: p.id === players[currentTurnIndex].id }))
+        });
+    });
 }
 
-server.listen(3000, () => console.log('Premium Server Running on Port 3000'));
+const PORT = process.env.PORT || 3000;
+http.listen(PORT, () => console.log(`Premium Rule-Enforced Server Online on Port ${PORT}`));
