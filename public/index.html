@@ -6,161 +6,319 @@
     <title>UNO Royale Arena</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
+        :root {
+            --red: #ff3838;
+            --blue: #1e90ff;
+            --yellow: #ffa502;
+            --green: #2ed573;
+            --wild: #1e272e;
+        }
         body {
-            background-color: #0a0a12;
+            background-color: #0d0d1a;
             color: #ffffff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            text-align: center;
+            font-family: 'Montserrat', 'Segoe UI', sans-serif;
             margin: 0;
             padding: 20px;
         }
-        .auth-card {
-            background: #141423;
-            max-width: 400px;
-            margin: 100px auto;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+        header {
+            border-bottom: 2px solid #202040;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
         }
-        h1 { color: #ff4757; margin-bottom: 5px; }
+        .signature {
+            color: #00ecff;
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(0,236,255,0.4);
+            margin: 5px 0;
+        }
+        .auth-card {
+            background: #151528;
+            max-width: 420px;
+            margin: 80px auto;
+            padding: 35px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            border: 1px solid #2a2a50;
+        }
         input, button {
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             margin: 10px 0;
-            border-radius: 6px;
+            border-radius: 8px;
             border: none;
+            font-size: 1rem;
             box-sizing: border-box;
         }
-        input { background: #202038; color: white; }
-        button {
-            background: #2ed573;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        button:hover { background: #26af5f; }
-        #gameArea { display: none; }
-        .hand { display: flex; justify-content: center; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
-        .card {
-            padding: 20px 15px;
-            border-radius: 8px;
-            font-weight: bold;
-            color: white;
-            cursor: pointer;
-            min-width: 60px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-        }
-        .card:hover { transform: translateY(-5px); }
-        .Red { background: #ff4757; }
-        .Blue { background: #2ed573; }
-        .Yellow { background: #ffa502; }
-        .Green { background: #1e90ff; }
-        .Wild { background: #747d8c; }
-        #topCardDisplay {
+        input { background: #222240; color: white; border: 1px solid #3b3b70; }
+        button { background: #2ed573; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #26af5f; filter: brightness(1.2); }
+        
+        #gameArea { display: none; max-width: 1200px; margin: 0 auto; }
+        
+        /* AUTHENTIC DIAGONAL OVAL UNO CARD ENGINE */
+        .uno-card {
             display: inline-block;
-            font-size: 1.5rem;
-            padding: 40px 30px;
-            margin: 20px;
-            border-radius: 12px;
+            position: relative;
+            width: 100px;
+            height: 150px;
+            border-radius: 10px;
+            border: 4px solid white;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.5);
+            cursor: pointer;
+            overflow: hidden;
+            user-select: none;
+            transition: transform 0.2s;
         }
+        .uno-card:hover { transform: translateY(-15px) scale(1.05); z-index: 10; }
+        
+        /* Card Oval Center Design */
+        .uno-card::before {
+            content: '';
+            position: absolute;
+            width: 110px;
+            height: 75px;
+            background: rgba(255,255,255,0.18);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-25deg);
+        }
+        
+        .card-inner-value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.2rem;
+            font-weight: 900;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.6);
+        }
+        
+        /* Tiny corner values */
+        .card-corner { position: absolute; font-size: 0.9rem; font-weight: bold; padding: 5px; }
+        .top-left { top: 0; left: 0; }
+        .bottom-right { bottom: 0; right: 0; transform: rotate(180deg); }
+
+        /* Color Layout Assortments */
+        .Red { background-color: var(--red); }
+        .Blue { background-color: var(--blue); }
+        .Yellow { background-color: var(--yellow); }
+        .Green { background-color: var(--green); }
+        .Wild { background-color: var(--wild); background: radial-gradient(circle, #ff3838 20%, #1e90ff 40%, #ffa502 60%, #2ed573 80%); }
+
+        /* General Layout Wrappers */
+        .hand { display: flex; justify-content: center; gap: 12px; margin-top: 30px; flex-wrap: wrap; padding: 20px; background: rgba(255,255,255,0.02); border-radius: 16px; }
+        .center-board { display: flex; justify-content: center; align-items: center; gap: 60px; margin: 30px 0; }
+        
+        /* CELEBRATION OVERLAY SYSTEM */
+        #celebrationBox {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .celeb-content { background: #1a1a3a; padding: 40px; border-radius: 20px; border: 2px solid #00ecff; text-align: center; box-shadow: 0 0 30px #00ecff; }
+
+        /* GOD MODE MONITOR COCKPIT */
+        #adminDashboard {
+            display: none;
+            margin-top: 50px;
+            padding: 25px;
+            background: linear-gradient(135deg, #1f0033 0%, #00001a 100%);
+            border-radius: 12px;
+            border: 2px solid #ff007f;
+            box-shadow: 0 0 20px rgba(255, 0, 127, 0.4);
+            text-align: left;
+        }
+        .admin-stream-card { background: rgba(255,255,255,0.05); padding: 15px; margin: 10px 0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
 <body>
 
+    <header>
+        <div class="signature">Developed by- PUSHPAK</div>
+        <h1>UNO ROYALE ARENA</h1>
+    </header>
+
     <div id="authContainer" class="auth-card">
-        <h1>UNO ROYALE</h1>
-        <p style="color: #888; font-size: 0.9rem; margin-top: -15px; margin-bottom: 25px; font-style: italic;">Created by Pushp</p>
-        
+        <h3>Identity Access Authentication</h3>
         <input type="text" id="usernameInput" placeholder="Enter Nickname...">
-        <button onclick="login()">Enter Arena</button>
+        <input type="password" id="accessPass" placeholder="Secret Key (Optional God Mode)">
+        <button onclick="connectArena()">Enter Game Arena</button>
     </div>
 
     <div id="gameArea">
-        <h2 id="turnIndicator">Waiting for host to start...</h2>
-        <button id="startBtn" onclick="startGame()" style="max-width: 200px; display: none;">Start Match</button>
+        <h2 id="turnIndicator" style="font-size: 1.8rem; text-shadow: 0 0 10px rgba(255,255,255,0.2);">Loading State...</h2>
+        <button id="startBtn" onclick="sendStartSignal()" style="max-width: 250px; display: none; background: #ff3838; margin: 10px auto;">Launch Match</button>
         
-        <div>
-            <h3>Discard Pile (Top Card):</h3>
-            <div id="topCardDisplay">--</div>
+        <div class="center-board">
+            <div>
+                <h3>Discard Pile</h3>
+                <div id="topCardTarget"></div>
+            </div>
+            <div>
+                <h3>Deck Drive</h3>
+                <button onclick="triggerDrawRequest()" style="width: 120px; height: 150px; background: #222240; border: 3px dashed #444488; border-radius: 10px; font-size: 1.1rem;">DRAW CARD</button>
+            </div>
         </div>
 
-        <button onclick="drawCard()" style="max-width: 200px; background: #ffa502;">Draw Card</button>
+        <div style="margin: 20px 0;">
+            <h3>Active Player Status Tracker</h3>
+            <div id="playerListSummary" style="display: flex; justify-content: center; gap: 20px;"></div>
+        </div>
 
-        <h3>Your Cards:</h3>
+        <h3>Your Action Deck:</h3>
         <div id="handDisplay" class="hand"></div>
+
+        <div id="adminDashboard">
+            <h2 style="color: #ff007f; margin-top:0;">⚡ Host Engine Matrix Control Override</h2>
+            <div id="adminPlayerStream"></div>
+        </div>
+    </div>
+
+    <div id="celebrationBox">
+        <div class="celeb-content">
+            <h1 style="color: #ffa502; font-size: 3rem; margin: 0;">🎉 MATCH VICTORY! 🎉</h1>
+            <h2 id="celebWinnerMsg" style="color: #fff; margin: 15px 0;">Player won the arena!</h2>
+            <div id="standingsBox" style="text-align: left; margin: 20px 0; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px;"></div>
+            <button onclick="dismissCelebration()" style="max-width: 150px;">Keep Watching</button>
+        </div>
     </div>
 
     <script>
         const socket = io();
-        let myId = null;
 
-        socket.on('connect', () => {
-            myId = socket.id;
-        });
+        function connectArena() {
+            const username = document.getElementById('usernameInput').value;
+            const pass = document.getElementById('accessPass').value;
+            if(!username) return alert("Please specify your user handle!");
 
-        function login() {
-            const name = document.getElementById('usernameInput').value;
-            if(!name) return alert('Please enter a nickname!');
-            
-            socket.emit('joinGame', name);
+            socket.emit('joinGame', { username: username, password: pass });
             document.getElementById('authContainer').style.display = 'none';
             document.getElementById('gameArea').style.display = 'block';
         }
 
-        socket.on('updatePlayers', (playerList) => {
-            // If you are the first player in the lobby room, you get the Start Button
-            if(playerList.length >= 2) {
-                document.getElementById('startBtn').style.display = 'inline-block';
+        socket.on('updatePlayers', (list) => {
+            if (list.length >= 2) {
+                document.getElementById('startBtn').style.display = 'block';
             }
         });
 
-        function startGame() {
+        function sendStartSignal() {
             socket.emit('startGameSignal');
             document.getElementById('startBtn').style.display = 'none';
         }
 
+        function renderUnoCardMarkup(card, onClickFn) {
+            const cardDiv = document.createElement('div');
+            cardDiv.className = `uno-card ${card.color}`;
+            if(onClickFn) cardDiv.onclick = onClickFn;
+
+            const val = card.value;
+            let displayVal = val;
+            if(val === 'Skip') displayVal = '⊘';
+            if(val === 'Reverse') displayVal = '⇄';
+            if(val === 'Draw2') displayVal = '+2';
+            if(val === 'Draw4') displayVal = '+4';
+            if(val === 'Wild' && card.color === 'Wild') displayVal = 'W';
+
+            cardDiv.innerHTML = `
+                <div class="card-corner top-left">${displayVal}</div>
+                <div class="card-inner-value">${displayVal}</div>
+                <div class="card-corner bottom-right">${displayVal}</div>
+            `;
+            return cardDiv;
+        }
+
         socket.on('gameStateUpdate', (data) => {
-            // Update Turn tracking text
+            // Turn text handling
             const indicator = document.getElementById('turnIndicator');
             if(data.isYourTurn) {
-                indicator.innerText = "YOUR TURN! Play a matching card.";
+                indicator.innerText = "YOUR TURN! Play a valid card.";
                 indicator.style.color = "#2ed573";
             } else {
-                indicator.innerText = `${data.currentTurnName}'s Turn...`;
+                indicator.innerText = `${data.currentTurnName}'s move...`;
                 indicator.style.color = "#ffffff";
             }
 
-            // Update Top Played Card Display
-            const topCardDiv = document.getElementById('topCardDisplay');
-            topCardDiv.innerText = `${data.topCard.color} ${data.topCard.value}`;
-            topCardDiv.className = `card ${data.topCard.color}`;
+            // Top played card renderer
+            const targetTop = document.getElementById('topCardTarget');
+            targetTop.innerHTML = '';
+            targetTop.appendChild(renderUnoCardMarkup(data.topCard, null));
 
-            // Render player cards
-            const handDiv = document.getElementById('handDisplay');
-            handDiv.innerHTML = '';
+            // Personal Hand deck builder
+            const handDisplay = document.getElementById('handDisplay');
+            handDisplay.innerHTML = '';
             data.yourHand.forEach((card, index) => {
-                const cardEl = document.createElement('div');
-                cardEl.className = `card ${card.color}`;
-                cardEl.innerText = card.value;
-                cardEl.onclick = () => playCard(index);
-                handDiv.appendChild(cardEl);
+                const element = renderUnoCardMarkup(card, () => socket.emit('playCardRequest', index));
+                handDisplay.appendChild(element);
             });
+
+            // Player tracker snapshot
+            const trackBox = document.getElementById('playerListSummary');
+            trackBox.innerHTML = '';
+            data.playerListSnapshot.forEach(p => {
+                const el = document.createElement('div');
+                el.style.padding = '10px 15px';
+                el.style.background = p.active ? '#ff3838' : '#151528';
+                el.style.borderRadius = '8px';
+                el.style.border = p.finished ? '2px solid #2ed573' : '1px solid #3b3b70';
+                el.innerHTML = `<strong>${p.name}</strong>: ${p.finished ? '🏆 OUT' : p.count + ' cards'}`;
+                trackBox.appendChild(el);
+            });
+
+            // --- GOD MODE INTERFACE BUILD ENGINE ---
+            if(data.allPlayersHandsSnapshot) {
+                document.getElementById('adminDashboard').style.display = 'block';
+                const container = document.getElementById('adminPlayerStream');
+                container.innerHTML = '';
+                
+                data.allPlayersHandsSnapshot.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = 'admin-stream-card';
+                    
+                    let handItemsStr = p.hand.map(c => `[${c.color} ${c.value}]`).join(', ') || 'No Cards Left';
+                    
+                    div.innerHTML = `
+                        <div>
+                            <strong>📡 ${p.name}</strong> <span style="color:#aaa; font-size:0.85rem;">(${p.id})</span><br>
+                            <span style="color:#00ecff; font-size:0.9rem;">Cards: ${handItemsStr}</span>
+                        </div>
+                        <div>
+                            <button onclick="socket.emit('adminDrainHand','${p.id}')" style="background:#ff0055; width:auto; padding:6px 12px; margin-right:5px; font-size:0.8rem;">Instant Win</button>
+                            <button onclick="socket.emit('adminInjectCards','${p.id}')" style="background:#ffa502; width:auto; padding:6px 12px; font-size:0.8rem;">+4 Injection</button>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            }
         });
 
-        function playCard(index) {
-            socket.emit('playCardRequest', index);
-        }
-
-        function drawCard() {
-            socket.emit('drawCardRequest');
-        }
-
-        socket.on('errorAlert', (msg) => {
-            alert(msg);
+        socket.on('celebrateWinner', (data) => {
+            document.getElementById('celebWinnerMsg').innerText = `🎉 ${data.winnerName} has cleared their hand! 🎉`;
+            const box = document.getElementById('standingsBox');
+            box.innerHTML = '<h4>Current Standings leaderboard:</h4>';
+            data.standings.forEach((name, idx) => {
+                box.innerHTML += `<p>${idx + 1}. ${name} 🏆</p>`;
+            });
+            document.getElementById('celebrationBox').style.display = 'flex';
         });
 
-        socket.on('gameOverEvent', (msg) => {
-            alert(msg);
+        function dismissCelebration() {
+            document.getElementById('celebrationBox').style.display = 'none';
+        }
+
+        function triggerDrawRequest() { socket.emit('drawCardRequest'); }
+        socket.on('errorAlert', (msg) => alert(msg));
+        
+        socket.on('gameOverEvent', (data) => {
+            alert(`The match is officially finished! All standings are locked in.`);
             location.reload();
         });
     </script>

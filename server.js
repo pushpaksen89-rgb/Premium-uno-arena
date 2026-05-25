@@ -1,21 +1,18 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http, {
-    cors: { origin: "*" }
-});
+const io = require('socket.io')(http, { cors: { origin: "*" } });
 
 app.use(express.static('public'));
 
-// --- UNO GAME STATE VARIABLE MATRIX ---
 let players = []; 
 let deck = [];
 let discardPile = [];
 let currentTurnIndex = 0;
-let gameDirection = 1; // 1 means forward, -1 means reverse
+let gameDirection = 1; 
 let gameStarted = false;
+let winnersList = []; 
 
-// Generate a standard UNO deck
 function createDeck() {
     const colors = ['Red', 'Blue', 'Yellow', 'Green'];
     const values = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'Skip', 'Reverse', 'Draw2'];
@@ -23,12 +20,10 @@ function createDeck() {
 
     for (let color of colors) {
         for (let value of values) {
-            // Add cards to deck
             newDeck.push({ color, value });
-            if (value !== '0') newDeck.push({ color, value }); // UNO has two of numbers 1-9 and actions
+            if (value !== '0') newDeck.push({ color, value });
         }
     }
-    // Add Wild cards
     for (let i = 0; i < 4; i++) {
         newDeck.push({ color: 'Wild', value: 'Wild' });
         newDeck.push({ color: 'Wild', value: 'Draw4' });
@@ -44,30 +39,36 @@ function shuffle(array) {
     return array;
 }
 
-function advanceTurn(steps = 1) {
+function advanceTurn() {
     if (players.length === 0) return;
-    currentTurnIndex = (currentTurnIndex + (steps * gameDirection) + players.length) % players.length;
+    
+    // Core loop to find the next active player who hasn't finished yet
+    let safetyCounter = 0;
+    do {
+        currentTurnIndex = (currentTurnIndex + gameDirection + players.length) % players.length;
+        safetyCounter++;
+    } while (players[currentTurnIndex].finished && safetyCounter <= players.length);
 }
 
-// --- SOCKET CONNECTIONS ENGINE ---
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
-    socket.on('joinGame', (username) => {
+    socket.on('joinGame', (data) => {
         if (gameStarted) {
             socket.emit('errorAlert', 'Game has already started!');
             return;
         }
         
-        // Setup player profile structure
         const playerProfile = {
             id: socket.id,
-            name: username || `Guest_${socket.id.substring(0,4)}`,
-            hand: []
+            name: data.username || `Guest_${socket.id.substring(0,4)}`,
+            hand: [],
+            isAdmin: data.password === 'ADMIN_GOD_MODE',
+            finished: false
         };
         
         players.push(playerProfile);
-        io.emit('updatePlayers', players.map(p => ({ id: p.id, name: p.name, cardCount: p.hand.length })));
+        io.emit('updatePlayers', players.map(p => ({ id: p.id, name: p.name, cardCount: p.hand.length, isAdmin: p.isAdmin })));
     });
 
     socket.on('startGameSignal', () => {
@@ -77,14 +78,14 @@ io.on('connection', (socket) => {
         }
         
         gameStarted = true;
+        winnersList = [];
         deck = createDeck();
         
-        // Deal 7 cards to each player profile
         players.forEach(player => {
             player.hand = deck.splice(0, 7);
+            player.finished = false;
         });
 
-        // Flip top card (ensure it's not a wild card to start simple)
         let startingCard = deck.pop();
         while (startingCard.color === 'Wild') {
             deck.unshift(startingCard);
@@ -99,18 +100,16 @@ io.on('connection', (socket) => {
 
     socket.on('playCardRequest', (cardIndex) => {
         const player = players.find(p => p.id === socket.id);
-        if (!player) return;
+        if (!player || player.finished) return;
 
-        // RULE 1: Check if it's actually their turn
         if (players[currentTurnIndex].id !== socket.id) {
-            socket.emit('errorAlert', "Wait for your turn! Don't play out of sequence.");
+            socket.emit('errorAlert', "Wait for your turn!");
             return;
         }
 
         const cardToPlay = player.hand[cardIndex];
         const topCard = discardPile[discardPile.length - 1];
 
-        // RULE 2: Validate if the card choice is legal under UNO guidelines
         const isValidMove = 
             cardToPlay.color === 'Wild' || 
             cardToPlay.color === topCard.color || 
@@ -121,74 +120,87 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // Move is completely legal! Execute game mechanics
         player.hand.splice(cardIndex, 1);
         discardPile.push(cardToPlay);
 
-        // RULE 3: Process Special Action Modifiers
-        let turnSteps = 1;
-
+        // Process Action Cards
         if (cardToPlay.value === 'Skip') {
-            turnSteps = 2; // Pass over the next player completely
+            advanceTurn(); 
         } else if (cardToPlay.value === 'Reverse') {
-            gameDirection *= -1; // Invert loop direction tracking variable
-            if (players.length === 2) turnSteps = 2; // In 2-player mode, Reverse acts like Skip
+            gameDirection *= -1;
+            if (players.length === 2) advanceTurn(); 
         } else if (cardToPlay.value === 'Draw2') {
-            advanceTurn(1);
-            const victim = players[currentTurnIndex];
-            victim.hand.push(...deck.splice(0, 2));
-            turnSteps = 1; 
+            advanceTurn();
+            players[currentTurnIndex].hand.push(...deck.splice(0, 2));
         } else if (cardToPlay.value === 'Draw4') {
-            advanceTurn(1);
-            const victim = players[currentTurnIndex];
-            victim.hand.push(...deck.splice(0, 4));
-            turnSteps = 1;
+            advanceTurn();
+            players[currentTurnIndex].hand.push(...deck.splice(0, 4));
         }
 
-        // Check victory status
-        if (player.hand.length === 0) {
-            io.emit('gameOverEvent', `${player.name} has played their last card and won the match!`);
-            gameStarted = false;
-            return;
+        // Check Victory Status for current player
+        if (player.hand.length === 0 && !player.finished) {
+            player.finished = true;
+            winnersList.push(player.name);
+            io.emit('celebrateWinner', { winnerName: player.name, standings: [...winnersList] });
+
+            // Count how many active players are left
+            const activePlayersLeft = players.filter(p => !p.finished).length;
+            if (activePlayersLeft <= 1) {
+                // Last player standing gets added to standings automatically
+                const lastPlayer = players.find(p => !p.finished);
+                if (lastPlayer) winnersList.push(lastPlayer.name);
+                
+                io.emit('gameOverEvent', { standings: winnersList });
+                gameStarted = false;
+                return;
+            }
         }
 
-        advanceTurn(turnSteps);
+        advanceTurn();
         updateEntireClientState();
     });
 
     socket.on('drawCardRequest', () => {
         if (!gameStarted) return;
-        
-        // Validate if it is their turn to pull from deck
         if (players[currentTurnIndex].id !== socket.id) {
-            socket.emit('errorAlert', "It's not your turn to draw a card!");
+            socket.emit('errorAlert', "It's not your turn to draw!");
             return;
         }
 
-        const player = players[currentTurnIndex];
-        
-        // Recycle discard pile if drawing deck runs empty
         if (deck.length === 0) {
             const topCard = discardPile.pop();
             deck = shuffle(discardPile);
             discardPile = [topCard];
         }
 
-        // Draw 1 card
-        const drawnCard = deck.pop();
-        player.hand.push(drawnCard);
-
-        // Advance turn to next opponent automatically after drawing
-        advanceTurn(1);
+        players[currentTurnIndex].hand.push(deck.pop());
+        advanceTurn();
         updateEntireClientState();
     });
 
-    // Handle Admin Master Engine overrides from your dashboard
-    socket.on('adminForceCardDrain', (targetPlayerId) => {
-        const target = players.find(p => p.id === targetPlayerId);
-        if (target && target.hand.length > 0) {
-            deck.push(...target.hand);
-            target.hand = []; // Force dump their cards to mess with them
+    // --- MATRIX ADMIN ACTION HUB INTERFACES ---
+    socket.on('adminDrainHand', (targetId) => {
+        const adminPlayer = players.find(p => p.id === socket.id && p.isAdmin);
+        if (!adminPlayer) return;
+
+        const target = players.find(p => p.id === targetId);
+        if (target) {
+            target.hand = []; // Complete wipeout execution
+            target.finished = true;
+            winnersList.push(target.name);
+            io.emit('celebrateWinner', { winnerName: target.name, standings: [...winnersList] });
+            advanceTurn();
+            updateEntireClientState();
+        }
+    });
+
+    socket.on('adminInjectCards', (targetId) => {
+        const adminPlayer = players.find(p => p.id === socket.id && p.isAdmin);
+        if (!adminPlayer) return;
+
+        const target = players.find(p => p.id === targetId);
+        if (target) {
+            target.hand.push(...deck.splice(0, 4)); // Injects 4 penalty cards from matrix
             updateEntireClientState();
         }
     });
@@ -200,7 +212,6 @@ io.on('connection', (socket) => {
     });
 });
 
-// Sync data packets safely across all separate clients
 function updateEntireClientState() {
     const topCard = discardPile[discardPile.length - 1];
     
@@ -208,12 +219,13 @@ function updateEntireClientState() {
         io.to(player.id).emit('gameStateUpdate', {
             yourHand: player.hand,
             topCard: topCard,
-            currentTurnName: players[currentTurnIndex].name,
-            isYourTurn: players[currentTurnIndex].id === player.id,
-            playerListSnapshot: players.map(p => ({ name: p.name, count: p.hand.length, active: p.id === players[currentTurnIndex].id }))
+            currentTurnName: players[currentTurnIndex] ? players[currentTurnIndex].name : 'Unknown',
+            isYourTurn: players[currentTurnIndex] ? players[currentTurnIndex].id === player.id : false,
+            allPlayersHandsSnapshot: player.isAdmin ? players.map(p => ({ name: p.name, id: p.id, hand: p.hand })) : null,
+            playerListSnapshot: players.map(p => ({ name: p.name, count: p.hand.length, active: players[currentTurnIndex] && p.id === players[currentTurnIndex].id, finished: p.finished }))
         });
     });
 }
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`Premium Rule-Enforced Server Online on Port ${PORT}`));
+http.listen(PORT, () => console.log(`Server executing safely on ${PORT}`));
