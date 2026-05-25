@@ -21,7 +21,7 @@
         body {
             background-color: #0d0d1a;
             color: #ffffff;
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 20px;
             text-align: center;
@@ -63,7 +63,7 @@
         
         #gameArea { display: none; max-width: 1200px; margin: 0 auto; }
         
-        /* VOICE CHAT DOCK LAYOUT */
+        /* REAL-TIME VOICE TERMINAL HUD */
         .voice-dock { 
             background: #141430; 
             border: 1px solid #00ecff; 
@@ -76,7 +76,7 @@
         }
         .mic-btn { width: auto; padding: 10px 20px; background: #00ecff; color: #000; margin: 0; }
 
-        /* AUTHENTIC DIAGONAL OVAL CARD MATRIX */
+        /* PREMIUM DIAGONAL OVAL CARD MATRIX */
         .uno-card { 
             display: inline-block; 
             position: relative; 
@@ -92,7 +92,7 @@
         }
         .uno-card:hover { transform: translateY(-15px) scale(1.05); z-index: 10; box-shadow: 0 0 15px rgba(255,255,255,0.4); }
         
-        /* The Classic UNO Center Oval Shape */
+        /* 3D Oval Shield inside the Card */
         .uno-card::before { 
             content: ''; 
             position: absolute; 
@@ -117,7 +117,7 @@
         .top-left { top: 0; left: 0; }
         .bottom-right { bottom: 0; right: 0; transform: rotate(180deg); }
 
-        /* Color Utility Assignments */
+        /* Premium Theme Core Colors */
         .Red { background-color: var(--red); } 
         .Blue { background-color: var(--blue); } 
         .Yellow { background-color: var(--yellow); } 
@@ -127,13 +127,13 @@
         .center-board { display: flex; justify-content: center; align-items: center; gap: 50px; margin: 30px 0; }
         .hand { display: flex; justify-content: center; gap: 12px; margin-top: 30px; flex-wrap: wrap; padding: 20px; background: rgba(255,255,255,0.02); border-radius: 16px; min-height: 160px; }
         
-        /* WILD POPUP MENU CHOOSER */
+        /* WILD COLOUR INTERACTIVE SELECTION DIALOG */
         #colorPickerModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 200; justify-content: center; align-items: center; }
         .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #151528; padding: 30px; border-radius: 16px; border: 1px solid #3b3b70; }
         .grid-choice { width: 120px; height: 120px; border-radius: 12px; cursor: pointer; border: 3px solid white; font-weight: bold; display: flex; justify-content: center; align-items: center; text-shadow: 1px 1px 3px black; transition: transform 0.1s; }
         .grid-choice:hover { transform: scale(1.05); }
 
-        /* SYSTEM FEED NOTIFICATION BOX */
+        /* LIVE FEEDS */
         #sysNotify { background: rgba(0,236,255,0.1); color: #00ecff; padding: 10px; border-radius: 8px; margin: 15px auto; max-width: 600px; font-weight: bold; display: none; border: 1px solid rgba(0,236,255,0.3); }
 
         #celebrationBox { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; justify-content: center; align-items: center; flex-direction: column; }
@@ -163,7 +163,7 @@
         </div>
 
         <h2 id="turnIndicator">Establishing server sync...</h2>
-        <button id="startBtn" onclick="socket.emit('startGameSignal')" style="max-width: 250px; display: none; background: #ff3838; margin: 10px auto; box-shadow: 0 0 15px rgba(255,56,56,0.4);">Launch Match</button>
+        <button id="startBtn" onclick="socket.emit('startGameSignal')" style="max-width: 250px; display: none; background: #ff3838; margin: 10px auto; box-shadow: 0 0 15px #ff3838;">Launch Match</button>
         
         <div class="center-board">
             <div>
@@ -213,6 +213,8 @@
     </div>
 
     <script>
+        // Explicitly force connection handler handshake straight to hosting domain origin
+        const socket = io(window.location.origin);
         let localStream = null;
         let peers = {};
         let pendingCardIndex = null;
@@ -229,11 +231,11 @@
             initiateVoiceAudioSystems();
         }
 
-        // --- WEB-RTC AUDIO SYSTEM ENGINE ---
+        // --- STABLE PEER AUDIO NETWORKING ---
         async function initiateVoiceAudioSystems() {
             try {
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.SimplePeer) {
-                    document.getElementById('voiceStatus').innerText = "Not supported on this network layout.";
+                    document.getElementById('voiceStatus').innerText = "Audio Room streaming unsupported.";
                     return;
                 }
 
@@ -250,6 +252,177 @@
                     peers[data.from].signal(data.signal);
                 });
             } catch (err) {
-                console.log("Mic streaming bypass initialized:", err);
-                document.getElementById('voiceStatus').innerText = "Audio Muted (Microphone block detected)";
+                console.log("Mic bypass engaged:", err);
+                document.getElementById('voiceStatus').innerText = "Audio Muted (Permission Required)";
             }
+        }
+
+        function initiatePeerConnection(peerId, initiator) {
+            try {
+                const peer = new SimplePeer({ initiator: initiator, trickle: false, stream: localStream });
+                
+                peer.on('signal', (signal) => {
+                    socket.emit('voice-signal', { to: peerId, signal: signal });
+                });
+
+                peer.on('stream', (stream) => {
+                    const audio = document.createElement('audio');
+                    audio.srcObject = stream;
+                    audio.play();
+                });
+
+                peers[peerId] = peer;
+            } catch (e) {
+                console.error("WebRTC frame dropped safe block:", e);
+            }
+        }
+
+        function toggleMuteState() {
+            if (!localStream) return;
+            const enabled = localStream.getAudioTracks()[0].enabled;
+            if (enabled) {
+                localStream.getAudioTracks()[0].enabled = false;
+                document.getElementById('micToggleBtn').innerText = "Unmute Mic";
+                document.getElementById('micToggleBtn').style.background = "#ff3838";
+            } else {
+                localStream.getAudioTracks()[0].enabled = true;
+                document.getElementById('micToggleBtn').innerText = "Mute Mic";
+                document.getElementById('micToggleBtn').style.background = "#00ecff";
+            }
+        }
+
+        // --- VISUAL RENDERING CONSOLE ENGINE ---
+        function renderUnoCardMarkup(card, onClickFn) {
+            const cardDiv = document.createElement('div');
+            cardDiv.className = `uno-card ${card.color}`;
+            if(onClickFn) cardDiv.onclick = onClickFn;
+
+            let val = card.value;
+            let displayVal = val;
+            if(val === 'Skip') displayVal = '⊘'; 
+            if(val === 'Reverse') displayVal = '⇄';
+            if(val === 'Draw2') displayVal = '+2'; 
+            if(val === 'Draw4') displayVal = '+4';
+            if(val === 'Wild' && card.color === 'Wild') displayVal = 'W';
+
+            cardDiv.innerHTML = `
+                <div class="card-corner top-left">${displayVal}</div>
+                <div class="card-inner-value">${displayVal}</div>
+                <div class="card-corner bottom-right">${displayVal}</div>
+            `;
+            return cardDiv;
+        }
+
+        function processCardPlayAttempt(card, index) {
+            if (card.color === 'Wild') {
+                pendingCardIndex = index;
+                document.getElementById('colorPickerModal').style.display = 'flex';
+            } else {
+                socket.emit('playCardRequest', { index: index, chosenColor: null });
+            }
+        }
+
+        function selectColorAction(color) {
+            document.getElementById('colorPickerModal').style.display = 'none';
+            socket.emit('playCardRequest', { index: pendingCardIndex, chosenColor: color });
+            pendingCardIndex = null;
+        }
+
+        // --- PACKET SYNC CONTROLLERS ---
+        socket.on('gameStateUpdate', (data) => {
+            const indicator = document.getElementById('turnIndicator');
+            if(data.isYourTurn) { 
+                indicator.innerText = "YOUR TURN! Play a valid card."; 
+                indicator.style.color = "#2ed573"; 
+            } else { 
+                indicator.innerText = `${data.currentTurnName}'s move...`; 
+                indicator.style.color = "#ffffff"; 
+            }
+
+            const alertLabel = document.getElementById('wildColorAlert');
+            if (data.activeWildColor) {
+                alertLabel.innerText = `Active Wild Target: ${data.activeWildColor.toUpperCase()}`;
+                alertLabel.style.color = `var(--${data.activeWildColor.toLowerCase()})`;
+            } else { 
+                alertLabel.innerText = ''; 
+            }
+
+            const targetTop = document.getElementById('topCardTarget');
+            targetTop.innerHTML = '';
+            targetTop.appendChild(renderUnoCardMarkup(data.topCard, null));
+
+            const handDisplay = document.getElementById('handDisplay');
+            handDisplay.innerHTML = '';
+            data.yourHand.forEach((card, index) => {
+                handDisplay.appendChild(renderUnoCardMarkup(card, () => processCardPlayAttempt(card, index)));
+            });
+
+            const trackBox = document.getElementById('playerListSummary');
+            trackBox.innerHTML = '';
+            data.playerListSnapshot.forEach(p => {
+                const el = document.createElement('div');
+                el.style.padding = '10px 15px'; 
+                el.style.background = p.active ? '#ff3838' : '#151528'; 
+                el.style.borderRadius = '8px';
+                el.style.border = p.finished ? '2px solid #2ed573' : '1px solid #3b3b70';
+                el.innerHTML = `<strong>${p.name}</strong>: ${p.finished ? '🏆 OUT' : p.count + ' cards'}`;
+                trackBox.appendChild(el);
+            });
+
+            // --- ADMIN MATRIX PRIVILEGE ROUTER ---
+            if(data.allPlayersHandsSnapshot) {
+                document.getElementById('adminDashboard').style.display = 'block';
+                const container = document.getElementById('adminPlayerStream'); 
+                container.innerHTML = '';
+                data.allPlayersHandsSnapshot.forEach(p => {
+                    const div = document.createElement('div');
+                    div.style.background = 'rgba(255,255,255,0.04)'; 
+                    div.style.padding = '12px'; 
+                    div.style.margin = '12px 0'; 
+                    div.style.borderRadius = '8px';
+                    div.style.display = 'flex'; 
+                    div.style.justifyContent = 'space-between';
+                    div.style.alignItems = 'center';
+                    
+                    let handItemsStr = p.hand.map(c => `[${c.color} ${c.value}]`).join(', ') || 'No Cards Left';
+                    div.innerHTML = `
+                        <div><strong>📡 Monitoring: ${p.name}</strong><br><span style="color:#00ecff; font-size:0.9rem;">${handItemsStr}</span></div>
+                        <div>
+                            <button onclick="socket.emit('adminDrainHand','${p.id}')" style="background:#ff0055; width:auto; padding:6px 12px; margin-right:5px; font-size:0.8rem;">Force Win</button>
+                            <button onclick="socket.emit('adminInjectCards','${p.id}')" style="background:#ffa502; width:auto; padding:6px 12px; font-size:0.8rem;">+4 Inject</button>
+                        </div>`;
+                    container.appendChild(div);
+                });
+            }
+        });
+
+        socket.on('systemNotification', (msg) => {
+            const feed = document.getElementById('sysNotify');
+            feed.innerText = msg; 
+            feed.style.display = 'block';
+            setTimeout(() => { feed.style.display = 'none'; }, 4000);
+        });
+
+        socket.on('celebrateWinner', (data) => {
+            document.getElementById('celebWinnerMsg').innerText = `🎉 ${data.winnerName} cleared their hand! 🎉`;
+            const box = document.getElementById('standingsBox'); 
+            box.innerHTML = '<h4>Leaderboard Placements:</h4>';
+            data.standings.forEach((name, idx) => { box.innerHTML += `<p>${idx + 1}. ${name} 🏆</p>`; });
+            document.getElementById('celebrationBox').style.display = 'flex';
+        });
+
+        socket.on('updatePlayers', (list) => { 
+            if(list.length >= 2) document.getElementById('startBtn').style.display = 'block'; 
+        });
+        
+        socket.on('errorAlert', (msg) => alert(msg));
+        
+        socket.on('gameOverEvent', (data) => { 
+            let msg = 'The match is completely finished!\n\nFinal Rankings:\n';
+            data.standings.forEach((name, i) => { msg += `${i+1}. ${name}\n`; });
+            alert(msg); 
+            location.reload(); 
+        });
+    </script>
+</body>
+</html>
