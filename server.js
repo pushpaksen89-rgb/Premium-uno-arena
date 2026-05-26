@@ -47,7 +47,7 @@ function findRoomByPlayerId(playerId) {
 
 function moveToNextTurn(room) {
     let attempts = 0;
-    const activePlayers = room.players.filter(p => !p.isSpectator);
+    const activePlayers = room.players.filter(p => !p.isSpectator && !p.finished);
     if(activePlayers.length === 0) return;
     
     do {
@@ -105,10 +105,17 @@ io.on('connection', (socket) => {
             };
         }
         const room = rooms[roomId];
+        
+        // If the game hasn't started yet, new players are NOT spectators; they are active round participants
         const newPlayer = {
-            id: socket.id, name: data.username || `User_${socket.id.slice(0,4)}`,
-            hand: [], isAdmin: (data.password === MASTER_ADMIN_PASS), finished: false, isSpectator: room.isStarted
+            id: socket.id, 
+            name: data.username || `User_${socket.id.slice(0,4)}`,
+            hand: [], 
+            isAdmin: (data.password === MASTER_ADMIN_PASS), 
+            finished: false, 
+            isSpectator: room.isStarted // Only spectate if joining mid-match
         };
+        
         room.players.push(newPlayer);
         socket.join(roomId);
         io.to(roomId).emit('systemNotification', `${newPlayer.name} entered room ${roomId}`);
@@ -125,7 +132,8 @@ io.on('connection', (socket) => {
 
     socket.on('startGameSignal', () => {
         const room = findRoomByPlayerId(socket.id);
-        if (!room || room.isStarted) return;
+        if (!room) return;
+        
         room.deck = generateUnoDeck();
         room.discardPile = [];
         room.isStarted = true;
@@ -133,20 +141,25 @@ io.on('connection', (socket) => {
         room.activeWildColor = null;
         room.standings = [];
 
+        // FORCE RESET AND DEAL: Convert all lobby waitlist players to active status and hand them 7 cards
         room.players.forEach(p => {
-            if(!p.isSpectator) {
-                p.hand = []; p.finished = false;
-                for(let i=0; i<7; i++) p.hand.push(room.deck.pop());
+            p.hand = []; 
+            p.finished = false;
+            p.isSpectator = false; // Wake up all players from lobby wait state
+            for(let i=0; i<7; i++) {
+                if(room.deck.length > 0) p.hand.push(room.deck.pop());
             }
         });
 
         let startingCard = room.deck.pop();
-        while(startingCard.color === 'Wild') {
+        while(startingCard && startingCard.color === 'Wild') {
             room.deck.unshift(startingCard);
             startingCard = room.deck.pop();
         }
-        room.discardPile.push(startingCard);
-        room.currentTurn = room.players.findIndex(p => !p.isSpectator);
+        if(startingCard) room.discardPile.push(startingCard);
+        
+        room.currentTurn = 0;
+        io.to(room.id).emit('systemNotification', "⚡ Match Matrix fully synchronized! Initial hands dealt.");
         broadcastGameState(room);
     });
 
@@ -200,7 +213,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- INTEGRATED OMNIPOTENT FACTORY GOD ENGINE ---
+    // --- GOD MODE OVERRIDES ---
     socket.on('adminAddCustomCard', (data) => {
         const room = findRoomByPlayerId(socket.id);
         if (!room) return;
@@ -213,6 +226,9 @@ io.on('connection', (socket) => {
             if (data.value === 'Wild' || data.value === 'Draw4' || data.value === 'WildSwap') {
                 customColor = 'Wild';
             }
+            
+            // If injecting to a spectator, convert them to an active participant instantly
+            target.isSpectator = false;
             
             target.hand.push({ color: customColor, value: data.value });
             io.to(room.id).emit('systemNotification', `⚡ Admin generated [${customColor} ${data.value}] into ${target.name}'s hand.`);
