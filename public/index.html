@@ -3,153 +3,336 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UNO Royale Arena</title>
+    <title>UNO Royale Supreme</title>
     <script src="/socket.io/socket.io.js"></script>
     <script>window.process = { env: { NODE_ENV: 'production' } };</script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
     
     <style>
         :root {
-            --red: #ff3838;
-            --blue: #1e90ff;
-            --yellow: #ffa502;
-            --green: #2ed573;
+            --red: #ff3333;
+            --blue: #0066ff;
+            --yellow: #ffcc00;
+            --green: #22cc44;
             --wild: #1e272e;
-            --neon-glow: 0 0 20px rgba(0,236,255,0.6);
         }
+
         body {
-            background: radial-gradient(circle at center, #1a1a3a 0%, #070714 70%, #020208 100%);
+            background-color: #0b071e;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(255, 51, 51, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 10%, rgba(0, 102, 255, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(34, 204, 68, 0.12) 0%, transparent 45%),
+                radial-gradient(circle at 20% 85%, rgba(255, 204, 0, 0.12) 0%, transparent 40%);
+            background-attachment: fixed;
             color: #ffffff;
-            font-family: 'Segoe UI', Arial, sans-serif;
+            font-family: 'Arial Rounded MT Bold', 'Segoe UI', sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 10px;
             min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
         }
-        
-        /* HEADER RECONSTRUCTED */
+
+        /* CARTOONISH TITLE HEADER BAR */
         .header-container {
-            margin-bottom: 30px;
+            margin: 15px auto 10px auto;
             text-align: center;
         }
         .main-heading {
-            font-size: 3.5rem;
+            font-size: 4rem;
             font-weight: 900;
             margin: 0;
             text-transform: uppercase;
-            letter-spacing: 3px;
-            background: linear-gradient(45deg, var(--red), var(--yellow), var(--green), var(--blue));
+            letter-spacing: 2px;
+            background: linear-gradient(to right, var(--red) 25%, var(--yellow) 50%, var(--green) 75%, var(--blue));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+            filter: drop-shadow(4px 4px 0px rgba(0,0,0,0.8));
+            animation: bounceTitle 2s ease-in-out infinite alternate;
+        }
+        @keyframes bounceTitle {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-5px); }
         }
         .signature {
             color: #00ecff;
-            font-size: 1rem;
-            letter-spacing: 3px;
+            font-size: 1.2rem;
+            letter-spacing: 4px;
             font-weight: bold;
             margin-top: 5px;
-            text-shadow: 0 0 8px rgba(0,236,255,0.5);
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(0,236,255,0.7), 2px 2px 2px #000;
         }
 
-        /* CARD CONTAINERS WITH ROUNDED TEXTURE */
+        /* FLEX AND GRID LAYOUT MANIFESTO */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 20px;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            flex-grow: 1;
+        }
+
+        @media (max-width: 1024px) {
+            .main-layout { grid-template-columns: 1fr; }
+            .sidebar { position: static !important; height: auto !important; }
+        }
+
         .auth-card {
-            background: rgba(21, 21, 40, 0.75);
-            backdrop-filter: blur(12px);
-            max-width: 460px;
+            background: rgba(26, 17, 58, 0.85);
+            backdrop-filter: blur(15px);
+            max-width: 440px;
             margin: 40px auto;
             padding: 35px;
-            border-radius: 24px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.8), var(--neon-glow);
-            border: 2px solid #2a2a50;
+            border-radius: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 0 25px rgba(255, 51, 51, 0.2);
+            border: 4px solid #ffcc00;
+            text-align: center;
         }
+        .auth-card h3 {
+            font-size: 1.8rem;
+            color: #ff3333;
+            text-shadow: 2px 2px #000;
+            margin-top: 0;
+        }
+
         input, select, button {
             width: 100%;
             padding: 14px;
             margin: 10px 0;
-            border-radius: 12px;
+            border-radius: 16px;
             border: none;
             font-size: 1rem;
+            font-weight: bold;
             box-sizing: border-box;
+            transition: all 0.2s;
         }
-        input, select { background: #1b1b36; color: white; border: 1px solid #3b3b70; }
-        button { background: linear-gradient(90deg, #2ed573, #26af5f); color: white; font-weight: bold; cursor: pointer; transition: transform 0.2s, filter 0.2s; }
-        button:hover { transform: scale(1.02); filter: brightness(1.2); }
-        
-        #gameArea { display: none; max-width: 1300px; margin: 0 auto; position: relative; }
-        
-        /* FLOATING COMPACT VOICE ROOM CAP */
-        .voice-mini-dock { 
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(10, 10, 26, 0.9); 
-            border: 1px solid #00ecff; 
-            padding: 10px 15px; 
-            border-radius: 30px; 
-            z-index: 1000;
-            display: flex; 
-            align-items: center; 
-            gap: 12px;
-            box-shadow: 0 4px 15px rgba(0,236,255,0.3);
-            font-size: 0.85rem;
+        input, select {
+            background: #100a28;
+            color: white;
+            border: 3px solid #3c2475;
         }
-        .mic-btn-small { width: auto; padding: 6px 14px; background: #00ecff; color: #000; margin: 0; border-radius: 20px; font-size: 0.8rem; }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #00ecff;
+            box-shadow: 0 0 10px rgba(0, 236, 255, 0.5);
+        }
+        button {
+            background: linear-gradient(135deg, #22cc44, #1b9e35);
+            color: white;
+            cursor: pointer;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            box-shadow: 0 6px 0 #126b24;
+        }
+        button:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #126b24;
+        }
 
-        /* MULTI-USER CHAT HUD */
-        .chat-container {
-            background: rgba(15, 15, 35, 0.8);
-            border-radius: 16px;
-            border: 1px solid #3b3b70;
+        #gameArea { display: none; width: 100%; }
+
+        /* COMPACT RIGHT SIDEBAR COMPONENT */
+        .sidebar {
+            background: rgba(15, 10, 36, 0.9);
+            border: 3px solid #3c2475;
+            border-radius: 24px;
             padding: 15px;
-            margin-top: 20px;
-            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            height: calc(100vh - 180px);
+            position: sticky;
+            top: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        .chat-logs { height: 120px; overflow-y: auto; background: #0b0b18; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; }
-        .chat-msg { margin-bottom: 6px; }
-        .chat-msg .author { color: #00ecff; font-weight: bold; }
 
-        /* UNO PLAYING CARD DEFINITIONS */
-        .uno-card { 
-            display: inline-block; 
-            position: relative; 
-            width: 100px; 
-            height: 150px; 
-            border-radius: 14px; 
-            border: 4px solid white; 
-            box-shadow: 0 8px 20px rgba(0,0,0,0.6); 
-            cursor: pointer; 
-            overflow: hidden; 
-            transition: transform 0.2s, box-shadow 0.2s; 
+        .voice-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 12px;
+            border: 2px solid #00ecff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
-        .uno-card:hover { transform: translateY(-15px) rotate(2deg); z-index: 10; box-shadow: 0 0 20px rgba(255,255,255,0.5); }
-        .uno-card::before { 
-            content: ''; 
-            position: absolute; 
-            width: 120px; 
-            height: 85px; 
-            background: rgba(255,255,255,0.25); 
-            border-radius: 50%; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%) rotate(-28deg); 
+        .voice-status-pill { font-size: 0.9rem; font-weight: bold; color: #00ecff; }
+        .mic-btn-small { width: auto; margin: 0; padding: 8px 16px; border-radius: 20px; background: #ff3333; box-shadow: 0 4px 0 #991111; }
+        .mic-btn-small.active { background: #22cc44; box-shadow: 0 4px 0 #126b24; }
+
+        .chat-section { display: flex; flex-direction: column; flex-grow: 1; min-height: 0; }
+        .chat-logs {
+            flex-grow: 1;
+            background: #080514;
+            border-radius: 12px;
+            padding: 10px;
+            overflow-y: auto;
+            border: 2px solid #3c2475;
+            font-size: 0.85rem;
+            margin-bottom: 10px;
         }
-        .card-inner-value { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2.4rem; font-weight: 900; text-shadow: 2px 2px 4px rgba(0,0,0,0.6); }
-        .card-corner { position: absolute; font-size: 0.95rem; font-weight: bold; padding: 5px; }
+        .chat-entry { margin-bottom: 8px; line-height: 1.3; }
+        .chat-sender { color: #00ecff; font-weight: bold; }
+
+        .game-core { display: flex; flex-direction: column; gap: 20px; }
+
+        /* THE 3D DIAGONAL OVAL SHIELD CARD ART */
+        .uno-card {
+            display: inline-block;
+            position: relative;
+            width: 110px;
+            height: 165px;
+            border-radius: 18px;
+            border: 6px solid #ffffff;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.6), inset 0 0 10px rgba(0,0,0,0.3);
+            cursor: pointer;
+            overflow: hidden;
+            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            user-select: none;
+        }
+        .uno-card:hover {
+            transform: translateY(-20px) rotate(3deg) scale(1.05);
+            box-shadow: 0 20px 30px rgba(0,0,0,0.8), 0 0 20px rgba(255,255,255,0.4);
+            z-index: 50;
+        }
+        .uno-card::before {
+            content: '';
+            position: absolute;
+            width: 125px;
+            height: 90px;
+            background: rgba(255, 255, 255, 0.28);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-28deg);
+        }
+        .card-inner-value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: #ffffff;
+            text-shadow: 4px 4px 0px rgba(0,0,0,0.8);
+            font-style: italic;
+        }
+        .card-corner {
+            position: absolute;
+            font-size: 1.1rem;
+            font-weight: 900;
+            padding: 6px;
+            color: #ffffff;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.8);
+        }
         .top-left { top: 0; left: 0; }
         .bottom-right { bottom: 0; right: 0; transform: rotate(180deg); }
 
-        .Red { background-color: var(--red); } .Blue { background-color: var(--blue); } .Yellow { background-color: var(--yellow); } .Green { background-color: var(--green); }
-        .Wild { background: radial-gradient(circle, #ff3838 20%, #1e90ff 40%, #ffa502 60%, #2ed573 80%); }
+        .Red { background-color: var(--red); }
+        .Blue { background-color: var(--blue); }
+        .Yellow { background-color: var(--yellow); color: #000; }
+        .Green { background-color: var(--green); }
+        .Wild { background: linear-gradient(135deg, #ff3333 0%, #ffcc00 50%, #22cc44 75%, #0066ff 100%); }
 
-        .center-board { display: flex; justify-content: center; align-items: center; gap: 50px; margin: 30px 0; }
-        .hand { display: flex; justify-content: center; gap: 12px; margin-top: 25px; flex-wrap: wrap; padding: 20px; background: rgba(255,255,255,0.03); border-radius: 20px; min-height: 160px; border: 1px dashed rgba(255,255,255,0.1); }
+        .center-board {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 60px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 24px;
+            border: 3px solid #3c2475;
+        }
+        .pile-box h3 { margin-top: 0; color: #ffcc00; text-shadow: 1px 1px #000; }
         
-        #colorPickerModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; justify-content: center; align-items: center; }
-        .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #151528; padding: 30px; border-radius: 24px; border: 2px solid #3b3b70; }
-        .grid-choice { width: 120px; height: 120px; border-radius: 16px; cursor: pointer; border: 3px solid white; font-weight: bold; display: flex; justify-content: center; align-items: center; text-shadow: 1px 1px 3px black; }
+        .deck-back-btn {
+            width: 110px;
+            height: 165px;
+            border-radius: 18px;
+            border: 6px solid #ffffff;
+            background: repeating-linear-gradient(45deg, #ff3333, #ff3333 10px, #cc1111 10px, #cc1111 20px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .deck-back-logo {
+            background: #ffffff;
+            color: #ff3333;
+            font-weight: 900;
+            font-size: 1.8rem;
+            padding: 8px 12px;
+            border-radius: 50%;
+            transform: rotate(-20deg);
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.3);
+        }
 
-        #sysNotify { background: rgba(0,236,255,0.15); color: #00ecff; padding: 12px; border-radius: 12px; margin: 15px auto; max-width: 600px; font-weight: bold; display: none; border: 1px solid rgba(0,236,255,0.4); }
-        #adminDashboard { display: none; margin-top: 40px; padding: 25px; background: linear-gradient(135deg, #1f0023 0%, #050515 100%); border-radius: 20px; border: 2px solid #ff007f; text-align: left; }
+        .panic-shout-btn {
+            background: linear-gradient(135deg, #ffa502, #ff3333);
+            color: white;
+            font-size: 1.5rem;
+            border-radius: 20px;
+            border: 3px solid #ffffff;
+            box-shadow: 0 8px 0 #aa2200, 0 10px 20px rgba(255,51,51,0.4);
+            max-width: 260px;
+            margin: 15px auto;
+        }
+
+        .hand-wrapper { background: rgba(16, 10, 40, 0.8); border-radius: 24px; padding: 20px; border: 3px solid #3c2475; }
+        .hand { display: flex; gap: 10px; flex-wrap: wrap; min-height: 180px; }
+
+        #sysNotify {
+            background: linear-gradient(90deg, #ff3333, #00ecff);
+            color: #ffffff;
+            padding: 12px 24px;
+            border-radius: 15px;
+            margin: 15px auto;
+            max-width: 600px;
+            font-weight: bold;
+            display: none;
+            border: 2px solid white;
+            animation: pulseNotification 1s infinite alternate;
+        }
+
+        #colorPickerModal, #celebrationBox {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center;
+        }
+        #colorPickerModal { z-index: 5000; }
+        #celebrationBox { z-index: 6000; }
+
+        .color-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: #1a113a; padding: 35px; border-radius: 30px; border: 4px solid #ffcc00; max-width: 320px;
+        }
+        .color-choice-bubble {
+            width: 110px; height: 110px; border-radius: 50%; cursor: pointer; border: 5px solid white; font-weight: bold; display: flex; align-items: center; justify-content: center; text-shadow: 1px 1px 3px black; box-shadow: 0 6px 0 rgba(0,0,0,0.3);
+        }
+
+        .celeb-card {
+            background: radial-gradient(circle, #25165c 0%, #100830 100%); padding: 40px; border-radius: 30px; border: 5px solid #00ecff; box-shadow: 0 0 40px #00ecff; text-align: center; max-width: 420px;
+        }
+
+        /* LIVE OMNIPOTENT GOD INTERFACE WITH DROP-DOWNS */
+        #adminDashboard {
+            display: none; background: linear-gradient(135deg, #250531 0%, #060517 100%); border-radius: 24px; border: 4px solid #ff007f; padding: 25px; margin-top: 30px;
+        }
+        .admin-player-card {
+            background: rgba(255, 255, 255, 0.05); padding: 15px; margin-bottom: 12px; border-radius: 16px; border: 1px solid rgba(255, 0, 127, 0.2); display: flex; flex-direction: column; gap: 10px;
+        }
+        .admin-factory-row {
+            display: flex; gap: 8px; flex-wrap: wrap; align-items: center; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 12px; border: 1px dashed #ff007f;
+        }
+        .admin-factory-row select { width: auto; padding: 6px 12px; margin: 0; font-size: 0.85rem; height: 35px; }
+        .admin-factory-row button { width: auto; padding: 6px 16px; margin: 0; font-size: 0.85rem; height: 35px; background: #ff007f; box-shadow: none; }
+
+        .active-comp-tray { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
+        .competitor-pill { padding: 10px 20px; border-radius: 20px; font-weight: bold; background: rgba(255, 255, 255, 0.05); border: 2px solid #3c2475; }
+        .competitor-pill.active { background: var(--red); border-color: #ffffff; box-shadow: 0 0 15px var(--red); }
     </style>
 </head>
 <body>
@@ -159,13 +342,12 @@
         <div class="signature">Developed by- PUSHPAK</div>
     </div>
 
-    <div id="sysNotify">Feed Active</div>
+    <div id="sysNotify">System Feed Stream Active</div>
 
     <div id="authContainer" class="auth-card">
-        <h3 style="margin-top:0; text-align:center;">Enter Match Portal</h3>
-        <input type="text" id="usernameInput" placeholder="Your Handle / Nickname...">
-        
-        <label style="font-size:0.85rem; color:#aaa; display:block; margin-top:10px;">Select Active Server Target:</label>
+        <h3>Connect Arena Gate</h3>
+        <input type="text" id="usernameInput" placeholder="Enter Nickname...">
+        <label style="font-size:0.85rem; color:#ffcc00; display:block; margin: 5px 0; text-align: left; font-weight: bold;">Select Target Server:</label>
         <select id="roomSelector">
             <option value="Arena_1">Server Room 01 (Grand Arena)</option>
             <option value="Arena_2">Server Room 02 (Neon Abyss)</option>
@@ -178,64 +360,82 @@
             <option value="Arena_9">Server Room 09</option>
             <option value="Arena_10">Server Room 10 (Supreme Sanctum)</option>
         </select>
-        
         <input type="password" id="accessPass" placeholder="Secret Admin Key (Optional)">
         <button onclick="connectArena()">Launch Engine Matrix</button>
     </div>
 
     <div id="gameArea">
-        <div class="voice-mini-dock">
-            <div>🎙️ <span id="voiceStatus">Linking...</span></div>
-            <button id="micToggleBtn" class="mic-btn-small" onclick="toggleMuteState()">Mute</button>
-        </div>
+        <div class="main-layout">
+            <div class="game-core">
+                <h2 id="turnIndicator" style="text-align: center; font-size: 1.8rem; text-shadow: 2px 2px #000;">Waiting for server...</h2>
+                <button id="startBtn" onclick="socket.emit('startGameSignal')" style="max-width: 250px; display: none; background: linear-gradient(135deg, var(--red), #cc1111); margin: 0 auto 20px auto;">Launch Match Matrix</button>
 
-        <h2 id="turnIndicator">Awaiting server sync stream...</h2>
-        <button id="startBtn" onclick="socket.emit('startGameSignal')" style="max-width: 250px; display: none; background: linear-gradient(90deg, #ff3838, #ff4d4d); margin: 10px auto;">Launch Match Matrix</button>
-        
-        <div class="center-board">
-            <div>
-                <h3>Discard Pile</h3>
-                <div id="topCardTarget"></div>
-                <h4 id="wildColorAlert" style="margin-top: 10px;"></h4>
+                <div class="center-board">
+                    <div class="pile-box">
+                        <h3>Discard Pile</h3>
+                        <div id="topCardTarget"></div>
+                        <h4 id="wildColorAlert"></h4>
+                    </div>
+                    <div class="pile-box">
+                        <h3>Main Deck</h3>
+                        <div class="deck-back-btn" onclick="socket.emit('drawCardRequest')">
+                            <div class="deck-back-logo">UNO</div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="panic-shout-btn" onclick="socket.emit('declareUnoSignal')">📢 SHOUT UNO!</button>
+
+                <div class="hand-wrapper">
+                    <h3 style="margin-top:0; color: #ffcc00;">Your Action Hand:</h3>
+                    <div id="handDisplay" class="hand"></div>
+                </div>
+
+                <div>
+                    <h3 style="color:#00ecff;">Active Competitors:</h3>
+                    <div id="playerListSummary" class="active-comp-tray"></div>
+                </div>
+
+                <div id="adminDashboard">
+                    <h2 style="color: #ff007f; margin: 0 0 15px 0;">⚡ Host Matrix Control Override Cockpit (God Mode)</h2>
+                    <div id="adminPlayerStream"></div>
+                </div>
             </div>
-            <div>
-                <h3>Main Deck</h3>
-                <button onclick="socket.emit('drawCardRequest')" style="width: 100px; height: 150px; background: #161630; border: 3px dashed #3a3a75; border-radius: 14px; font-weight:bold; color:white; cursor:pointer;">DRAW CARD</button>
+
+            <div class="sidebar">
+                <div class="voice-section">
+                    <div class="voice-status-pill">🎙️ Voice: <span id="voiceStatus">Linking...</span></div>
+                    <button id="micToggleBtn" class="mic-btn-small active" onclick="toggleMuteState()">Mute</button>
+                </div>
+
+                <div class="chat-section">
+                    <h3 style="margin-top:0; color:#ffcc00; font-size:1.1rem; border-bottom:1px solid #3c2475; padding-bottom:5px;">💬 Room Broadcast</h3>
+                    <div id="chatLogs" class="chat-logs"></div>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="chatInput" placeholder="Write msg..." style="margin:0; font-size:0.9rem;" onkeydown="if(event.key==='Enter') sendChatMessage()">
+                        <button onclick="sendChatMessage()" style="width: auto; margin:0; padding:10px 18px; background: #0066ff; box-shadow: 0 4px 0 #0044bb;">Send</button>
+                    </div>
+                </div>
             </div>
-        </div>
-
-        <button onclick="socket.emit('declareUnoSignal')" style="background: linear-gradient(45deg, #ffa502, #ff3838); max-width: 240px; font-size: 1.2rem; margin-bottom: 20px;">📢 SHOUT UNO!</button>
-
-        <div style="margin: 20px 0;">
-            <h3>Active Competitors</h3>
-            <div id="playerListSummary" style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;"></div>
-        </div>
-
-        <h3>Your Action Cards:</h3>
-        <div id="handDisplay" class="hand"></div>
-
-        <div class="chat-container">
-            <h4>💬 Arena Text Broadcast Communications</h4>
-            <div id="chatLogs" class="chat-logs"></div>
-            <div style="display:flex; gap:10px;">
-                <input type="text" id="chatInput" placeholder="Broadcast string across room connection network..." style="margin:0;" onkeydown="if(event.key==='Enter') sendChatMessage()">
-                <button onclick="sendChatMessage()" style="width:120px; margin:0; background:#1e90ff;">Send</button>
-            </div>
-        </div>
-
-        <div id="adminDashboard">
-            <h2 style="color: #ff007f; margin:0 0 15px 0;">⚡ Host Matrix Oversight Operations (Omnipotent Mode)</h2>
-            <div id="adminPlayerStream"></div>
         </div>
     </div>
 
     <div id="colorPickerModal">
         <div class="color-grid">
-            <h3 style="grid-column: span 2; margin: 0 0 10px 0; text-align: center;">Choose Wild Color Strategy:</h3>
-            <div class="grid-choice Red" onclick="selectColorAction('Red')">RED</div>
-            <div class="grid-choice Blue" onclick="selectColorAction('Blue')">BLUE</div>
-            <div class="grid-choice Yellow" onclick="selectColorAction('Yellow')">YELLOW</div>
-            <div class="grid-choice Green" onclick="selectColorAction('Green')">GREEN</div>
+            <h3 style="grid-column: span 2; margin: 0 0 10px 0; text-align: center; color: white;">Choose Wild Color:</h3>
+            <div class="color-choice-bubble Red" onclick="selectColorAction('Red')">RED</div>
+            <div class="color-choice-bubble Blue" onclick="selectColorAction('Blue')">BLUE</div>
+            <div class="color-choice-bubble Yellow" onclick="selectColorAction('Yellow')">YELLOW</div>
+            <div class="color-choice-bubble Green" onclick="selectColorAction('Green')">GREEN</div>
+        </div>
+    </div>
+
+    <div id="celebrationBox">
+        <div class="celeb-card">
+            <h1 style="color: #ffcc00; font-size: 2.8rem; margin: 0 0 10px 0; text-shadow: 2px 2px #000;">🏆 WINNER! 🏆</h1>
+            <h2 id="celebWinnerMsg" style="color: #ffffff; margin-bottom: 20px;">Player has cleared their hand!</h2>
+            <div id="standingsBox" style="text-align: left; background: rgba(0,0,0,0.4); padding: 15px; border-radius: 16px; margin-bottom: 20px; max-height: 180px; overflow-y:auto; border: 2px solid #3c2475;"></div>
+            <button onclick="document.getElementById('celebrationBox').style.display='none'" style="max-width: 150px; background: #00ecff; box-shadow: 0 4px 0 #0099bb;">Continue</button>
         </div>
     </div>
 
@@ -254,7 +454,6 @@
             socket.emit('joinGame', { username: username, password: pass, room: roomTarget });
             document.getElementById('authContainer').style.display = 'none';
             document.getElementById('gameArea').style.display = 'block';
-            
             initiateVoiceAudioSystems();
         }
 
@@ -267,11 +466,10 @@
 
         socket.on('incomingTextMessage', (data) => {
             const logs = document.getElementById('chatLogs');
-            logs.innerHTML += `<div class="chat-msg"><span class="author">${data.user}:</span> ${data.text}</div>`;
+            logs.innerHTML += `<div class="chat-entry"><span class="chat-sender">${data.user}:</span> ${data.text}</div>`;
             logs.scrollTop = logs.scrollHeight;
         });
 
-        // --- WEBRTC COMPACT VOICE CHAT ENGINE ---
         async function initiateVoiceAudioSystems() {
             try {
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.SimplePeer) {
@@ -288,7 +486,7 @@
                     peers[data.from].signal(data.signal);
                 });
             } catch (err) {
-                document.getElementById('voiceStatus').innerText = "Muted";
+                document.getElementById('voiceStatus').innerText = "Blocked";
             }
         }
 
@@ -309,8 +507,9 @@
             if (!localStream) return;
             const enabled = localStream.getAudioTracks()[0].enabled;
             localStream.getAudioTracks()[0].enabled = !enabled;
-            document.getElementById('micToggleBtn').innerText = enabled ? "Unmute" : "Mute";
-            document.getElementById('micToggleBtn').style.background = enabled ? "#ff3838" : "#00ecff";
+            const btn = document.getElementById('micToggleBtn');
+            btn.innerText = enabled ? "Unmute" : "Mute";
+            btn.className = enabled ? "mic-btn-small" : "mic-btn-small active";
         }
 
         function renderUnoCardMarkup(card, onClickFn) {
@@ -323,6 +522,7 @@
             if(card.value === 'Reverse') displayVal = '⇄';
             if(card.value === 'Draw2') displayVal = '+2'; 
             if(card.value === 'Draw4') displayVal = '+4';
+            if(card.value === 'WildSwap') displayVal = '⇆';
             if(card.value === 'Wild' && card.color === 'Wild') displayVal = 'W';
 
             cardDiv.innerHTML = `
@@ -348,23 +548,28 @@
             pendingCardIndex = null;
         }
 
-        // --- GAME UPDATE STATE MAPS ---
+        function triggerCustomInjection(targetId) {
+            const color = document.getElementById(`admColor_${targetId}`).value;
+            const value = document.getElementById(`admValue_${targetId}`).value;
+            socket.emit('adminAddCustomCard', { targetId: targetId, color: color, value: value });
+        }
+
         socket.on('gameStateUpdate', (data) => {
             const indicator = document.getElementById('turnIndicator');
             if(data.isSpectator) {
-                indicator.innerText = `Spectating Match Engine... (${data.currentTurnName}'s Turn)`;
+                indicator.innerText = `Spectating... (${data.currentTurnName}'s Turn)`;
                 indicator.style.color = "#ffa502";
             } else if(data.isYourTurn) { 
-                indicator.innerText = "YOUR TURN! Throw your matching color or symbol card."; 
-                indicator.style.color = "#2ed573"; 
+                indicator.innerText = "YOUR TURN! Play a card."; 
+                indicator.style.color = "#22cc44"; 
             } else { 
-                indicator.innerText = `${data.currentTurnName}'s move...`; 
+                indicator.innerText = `${data.currentTurnName}'s Turn...`; 
                 indicator.style.color = "#ffffff"; 
             }
 
             const alertLabel = document.getElementById('wildColorAlert');
             if (data.activeWildColor) {
-                alertLabel.innerText = `Active Wild Suit: ${data.activeWildColor.toUpperCase()}`;
+                alertLabel.innerText = `Active Color: ${data.activeWildColor.toUpperCase()}`;
                 alertLabel.style.color = `var(--${data.activeWildColor.toLowerCase()})`;
             } else { alertLabel.innerText = ''; }
 
@@ -382,31 +587,48 @@
             trackBox.innerHTML = '';
             data.playerListSnapshot.forEach(p => {
                 const el = document.createElement('div');
-                el.style.padding = '10px 15px'; 
-                el.style.background = p.active ? '#ff3838' : '#151528'; 
-                el.style.borderRadius = '12px';
-                el.innerHTML = `<strong>${p.name}</strong>: ${p.isSpectator ? '👁️ Spec' : p.count + ' cards'}`;
+                el.className = `competitor-pill ${p.active ? 'active' : ''}`;
+                el.innerHTML = `<strong>${p.name}</strong>: ${p.finished ? '🏆 Out' : p.isSpectator ? '👁️ Spec' : p.count + ' cards'}`;
                 trackBox.appendChild(el);
             });
 
-            // --- GOD MODE OVERRIDE MANAGEMENT PANEL ---
+            // GOD DASHBOARD POPULATION WITH MULTI-OPTION FACTORY HOOKS
             if(data.allPlayersHandsSnapshot) {
                 document.getElementById('adminDashboard').style.display = 'block';
                 const container = document.getElementById('adminPlayerStream'); 
                 container.innerHTML = '';
+                
                 data.allPlayersHandsSnapshot.forEach(p => {
                     const div = document.createElement('div');
-                    div.style.background = 'rgba(255,255,255,0.04)'; div.style.padding = '15px'; div.style.margin = '10px 0'; div.style.borderRadius = '12px';
+                    div.className = 'admin-player-card';
+                    let handItemsStr = p.hand.map((c, idx) => `[${c.color} ${c.value}]`).join(', ') || 'Empty Hand / Spectating';
                     
-                    let handItemsStr = p.hand.map((c, idx) => `[${idx}: ${c.color} ${c.value}]`).join(', ') || 'No Cards (Or Spectating)';
                     div.innerHTML = `
-                        <div><strong>📡 Tracking: ${p.name} ${p.finished ? '(OUT)' : ''}</strong><br><span style="color:#00ecff;">${handItemsStr}</span></div>
-                        <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-                            <button onclick="socket.emit('adminAddCustomCard', {targetId: '${p.id}', color: 'Red', value: 'Draw2'})" style="width:auto; padding:5px 10px; font-size:0.75rem; background:#ff3838;">Inject Red +2</button>
-                            <button onclick="socket.emit('adminAddCustomCard', {targetId: '${p.id}', color: 'Wild', value: 'Draw4'})" style="width:auto; padding:5px 10px; font-size:0.75rem; background:#1e272e;">Inject Wild +4</button>
-                            <button onclick="socket.emit('adminSwapWildCard', {targetId: '${p.id}'})" style="width:auto; padding:5px 10px; font-size:0.75rem; background:#ffa502;">Force Wild Swap</button>
-                            <button onclick="socket.emit('adminClearCards', '${p.id}')" style="width:auto; padding:5px 10px; font-size:0.75rem; background:#2ed573;">Drain Hand (Force Win)</button>
-                        </div>`;
+                        <div>
+                            <strong>📡 Player Target Hand Matrix: ${p.name}</strong><br>
+                            <span style="color:#00ecff; font-size:0.85rem;">${handItemsStr}</span>
+                        </div>
+                        <div class="admin-factory-row">
+                            <select id="admColor_${p.id}">
+                                <option value="Red">Red</option>
+                                <option value="Blue">Blue</option>
+                                <option value="Yellow">Yellow</option>
+                                <option value="Green">Green</option>
+                                <option value="Wild">Wild (Suitless)</option>
+                            </select>
+                            <select id="admValue_${p.id}">
+                                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                                <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+                                <option value="9">9</option><option value="Skip">Skip (⊘)</option>
+                                <option value="Reverse">Reverse (⇄)</option><option value="Draw2">Draw +2</option>
+                                <option value="Wild">Wild Color Change</option><option value="Draw4">Wild Draw +4</option>
+                                <option value="WildSwap">Wild Swap Card (⇆)</option>
+                            </select>
+                            <button onclick="triggerCustomInjection('${p.id}')">Inject Card</button>
+                            <button onclick="socket.emit('adminClearCards', '${p.id}')" style="background:#22cc44;">Purge Hand (Force Win)</button>
+                        </div>
+                    `;
                     container.appendChild(div);
                 });
             }
@@ -418,11 +640,19 @@
             setTimeout(() => { feed.style.display = 'none'; }, 4000);
         });
 
+        socket.on('celebrateWinner', (data) => {
+            document.getElementById('celebWinnerMsg').innerText = `🎉 ${data.winnerName} cleared their hand! 🎉`;
+            const box = document.getElementById('standingsBox'); 
+            box.innerHTML = '';
+            data.standings.forEach((name, idx) => { box.innerHTML += `<p><b>${idx + 1}. ${name}</b></p>`; });
+            document.getElementById('celebrationBox').style.display = 'flex';
+        });
+
         socket.on('updatePlayers', (list) => { 
-            const activePlayersCount = list.filter(p => !p.isSpectator).length;
-            if(activePlayersCount >= 2) document.getElementById('startBtn').style.display = 'block'; 
+            if(list.filter(p => !p.isSpectator).length >= 2) document.getElementById('startBtn').style.display = 'block'; 
         });
         socket.on('errorAlert', (msg) => alert(msg));
+        socket.on('gameOverEvent', (data) => { alert("Match Over!"); location.reload(); });
     </script>
 </body>
 </html>

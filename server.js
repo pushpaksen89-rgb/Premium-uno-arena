@@ -25,6 +25,7 @@ function generateUnoDeck() {
     for (let i = 0; i < 4; i++) {
         deck.push({ color: 'Wild', value: 'Wild' });
         deck.push({ color: 'Wild', value: 'Draw4' });
+        deck.push({ color: 'Wild', value: 'WildSwap' });
     }
     return shuffle(deck);
 }
@@ -39,9 +40,7 @@ function shuffle(deck) {
 
 function findRoomByPlayerId(playerId) {
     for (let roomId in rooms) {
-        if (rooms[roomId].players.some(p => p.id === playerId)) {
-            return rooms[roomId];
-        }
+        if (rooms[roomId].players.some(p => p.id === playerId)) return rooms[roomId];
     }
     return null;
 }
@@ -62,7 +61,6 @@ function moveToNextTurn(room) {
 }
 
 function broadcastGameState(room) {
-    const activePlayers = room.players.filter(p => !p.isSpectator && !p.finished);
     const currentTurnPlayer = room.players[room.currentTurn] || { name: "None", id: "" };
 
     room.players.forEach((p) => {
@@ -100,66 +98,44 @@ io.on('connection', (socket) => {
     
     socket.on('joinGame', (data) => {
         let roomId = data.room || "Arena_1";
-        
         if (!rooms[roomId]) {
             rooms[roomId] = {
-                id: roomId,
-                players: [],
-                deck: [],
-                discardPile: [],
-                currentTurn: 0,
-                direction: 1,
-                isStarted: false,
-                activeWildColor: null,
-                unoDeclarations: {}
+                id: roomId, players: [], deck: [], discardPile: [],
+                currentTurn: 0, direction: 1, isStarted: false, activeWildColor: null, standings: [], unoDeclarations: {}
             };
         }
-
         const room = rooms[roomId];
-        const isGameLive = room.isStarted;
-
         const newPlayer = {
-            id: socket.id,
-            name: data.username || `User_${socket.id.slice(0,4)}`,
-            hand: [],
-            isAdmin: (data.password === MASTER_ADMIN_PASS),
-            finished: false,
-            isSpectator: isGameLive // Joins as spectator if the match is already running
+            id: socket.id, name: data.username || `User_${socket.id.slice(0,4)}`,
+            hand: [], isAdmin: (data.password === MASTER_ADMIN_PASS), finished: false, isSpectator: room.isStarted
         };
-
         room.players.push(newPlayer);
         socket.join(roomId);
-
-        io.to(roomId).emit('systemNotification', `${newPlayer.name} connected to ${roomId} ${isGameLive ? 'as a Spectator' : ''}.`);
+        io.to(roomId).emit('systemNotification', `${newPlayer.name} entered room ${roomId}`);
         io.to(roomId).emit('updatePlayers', room.players);
         broadcastGameState(room);
     });
 
-    // --- INTEGRATED TEXT CHAT ROOM SIGNAL ---
     socket.on('textMessageSignal', (msg) => {
         const room = findRoomByPlayerId(socket.id);
         if(!room) return;
         const player = room.players.find(p => p.id === socket.id);
-        if(!player) return;
-
-        io.to(room.id).emit('incomingTextMessage', { user: player.name, text: msg });
+        if(player) io.to(room.id).emit('incomingTextMessage', { user: player.name, text: msg });
     });
 
     socket.on('startGameSignal', () => {
         const room = findRoomByPlayerId(socket.id);
         if (!room || room.isStarted) return;
-
         room.deck = generateUnoDeck();
         room.discardPile = [];
         room.isStarted = true;
         room.direction = 1;
         room.activeWildColor = null;
+        room.standings = [];
 
-        // Deal cards only to active non-spectating players
         room.players.forEach(p => {
             if(!p.isSpectator) {
-                p.hand = [];
-                p.finished = false;
+                p.hand = []; p.finished = false;
                 for(let i=0; i<7; i++) p.hand.push(room.deck.pop());
             }
         });
@@ -170,25 +146,16 @@ io.on('connection', (socket) => {
             startingCard = room.deck.pop();
         }
         room.discardPile.push(startingCard);
-        
-        // Point turn index to the first active player
         room.currentTurn = room.players.findIndex(p => !p.isSpectator);
-        if(room.currentTurn === -1) room.currentTurn = 0;
-
-        io.to(room.id).emit('systemNotification', "The Match Grid is active! Cards dealt.");
         broadcastGameState(room);
     });
 
-    // --- PLAY & DRAW LOGIC WITH PLAY-IMMEDIATELY RULE ---
     socket.on('drawCardRequest', () => {
         const room = findRoomByPlayerId(socket.id);
-        if (!room || !room.isStarted) return;
-
-        if (room.players[room.currentTurn].id !== socket.id) return;
+        if (!room || !room.isStarted || room.players[room.currentTurn].id !== socket.id) return;
         const player = room.players[room.currentTurn];
 
         if(room.deck.length === 0) {
-            if (room.discardPile.length <= 1) return;
             const top = room.discardPile.pop();
             room.deck = shuffle(room.discardPile);
             room.discardPile = [top];
@@ -196,28 +163,13 @@ io.on('connection', (socket) => {
 
         const drawnCard = room.deck.pop();
         player.hand.push(drawnCard);
-
-        const topCard = room.discardPile[room.discardPile.length - 1];
-        const isPlayable = (
-            drawnCard.color === topCard.color ||
-            drawnCard.value === topCard.value ||
-            drawnCard.color === 'Wild' ||
-            (room.activeWildColor && drawnCard.color === room.activeWildColor)
-        );
-
-        if (isPlayable) {
-            io.to(room.id).emit('systemNotification', `${player.name} pulled a playable card! They can play it instantly.`);
-        } else {
-            io.to(room.id).emit('systemNotification', `${player.name} drew a card and passed.`);
-            moveToNextTurn(room);
-        }
+        moveToNextTurn(room);
         broadcastGameState(room);
     });
 
     socket.on('playCardRequest', (data) => {
         const room = findRoomByPlayerId(socket.id);
-        if (!room || !room.isStarted) return;
-        if (room.players[room.currentTurn].id !== socket.id) return;
+        if (!room || !room.isStarted || room.players[room.currentTurn].id !== socket.id) return;
 
         const player = room.players[room.currentTurn];
         const card = player.hand[data.index];
@@ -230,18 +182,25 @@ io.on('connection', (socket) => {
         if (card.value === 'Skip') moveToNextTurn(room);
         if (card.value === 'Reverse') room.direction *= -1;
 
+        if (player.hand.length === 0 && !player.finished) {
+            player.finished = true;
+            room.standings.push(player.name);
+            io.to(room.id).emit('celebrateWinner', { winnerName: player.name, standings: room.standings });
+        }
+
         moveToNextTurn(room);
         broadcastGameState(room);
     });
 
     socket.on('declareUnoSignal', () => {
         const room = findRoomByPlayerId(socket.id);
-        if(!room) return;
-        const player = room.players.find(p => p.id === socket.id);
-        io.to(room.id).emit('systemNotification', `📢 ${player.name} safely shouted UNO!`);
+        if(room) {
+            const player = room.players.find(p => p.id === socket.id);
+            io.to(room.id).emit('systemNotification', `📢 ${player.name} shouted UNO!`);
+        }
     });
 
-    // --- ADVANCED ADVANCED GOD MODE CHANNELS ---
+    // --- INTEGRATED OMNIPOTENT FACTORY GOD ENGINE ---
     socket.on('adminAddCustomCard', (data) => {
         const room = findRoomByPlayerId(socket.id);
         if (!room) return;
@@ -250,23 +209,13 @@ io.on('connection', (socket) => {
 
         const target = room.players.find(p => p.id === data.targetId);
         if(target) {
-            target.hand.push({ color: data.color, value: data.value });
-            io.to(room.id).emit('systemNotification', `⚡ Admin injected [${data.color} ${data.value}] into ${target.name}'s hand.`);
-            broadcastGameState(room);
-        }
-    });
-
-    socket.on('adminSwapWildCard', (targetId) => {
-        const room = findRoomByPlayerId(socket.id);
-        if (!room) return;
-        const executor = room.players.find(p => p.id === socket.id);
-        if (!executor || !executor.isAdmin) return;
-
-        const target = room.players.find(p => p.id === targetId);
-        if(target && target.hand.length > 0) {
-            // Replace their first card with a Wild Draw 4 card
-            target.hand[0] = { color: 'Wild', value: 'Draw4' };
-            io.to(room.id).emit('systemNotification', `⚡ Admin converted ${target.name}'s first card into a Wild Draw 4 payload.`);
+            let customColor = data.color;
+            if (data.value === 'Wild' || data.value === 'Draw4' || data.value === 'WildSwap') {
+                customColor = 'Wild';
+            }
+            
+            target.hand.push({ color: customColor, value: data.value });
+            io.to(room.id).emit('systemNotification', `⚡ Admin generated [${customColor} ${data.value}] into ${target.name}'s hand.`);
             broadcastGameState(room);
         }
     });
@@ -281,7 +230,8 @@ io.on('connection', (socket) => {
         if(target) {
             target.hand = [];
             target.finished = true;
-            io.to(room.id).emit('systemNotification', `⚡ Admin purged ${target.name}'s hand to 0.`);
+            room.standings.push(target.name);
+            io.to(room.id).emit('celebrateWinner', { winnerName: target.name, standings: room.standings });
             moveToNextTurn(room);
             broadcastGameState(room);
         }
@@ -294,7 +244,6 @@ io.on('connection', (socket) => {
     socket.on('voice-signal', (data) => {
         io.to(data.to).emit('voice-signal', { signal: data.signal, from: socket.id });
     });
-
     socket.on('disconnect', () => {
         const room = findRoomByPlayerId(socket.id);
         if (room) {
@@ -306,4 +255,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server humming on port ${PORT}`));
+server.listen(PORT, () => console.log(`Supreme Matrix Server listening on port ${PORT}`));
