@@ -60,9 +60,8 @@ function moveToNextTurn(room) {
     } while ((room.players[room.currentTurn].isSpectator || room.players[room.currentTurn].finished) && attempts < room.players.length);
 }
 
-// CRITICAL RULE CHECKER: Validates matching color, value, or active wild condition
 function isValidUnoMove(card, topCard, activeWildColor) {
-    if (card.color === 'Wild') return true; // Wilds are always playable
+    if (card.color === 'Wild') return true; 
     if (activeWildColor && card.color === activeWildColor) return true;
     if (!activeWildColor && card.color === topCard.color) return true;
     if (card.value === topCard.value) return true;
@@ -111,7 +110,7 @@ io.on('connection', (socket) => {
             rooms[roomId] = {
                 id: roomId, players: [], deck: [], discardPile: [],
                 currentTurn: 0, direction: 1, isStarted: false, activeWildColor: null, standings: [],
-                pendingDrawnPlayableCard: null // Tracks if a player has an instant draw-play option
+                pendingDrawnPlayableCard: null 
             };
         }
         const room = rooms[roomId];
@@ -122,7 +121,8 @@ io.on('connection', (socket) => {
             hand: [], 
             isAdmin: (data.password === MASTER_ADMIN_PASS), 
             finished: false, 
-            isSpectator: room.isStarted 
+            isSpectator: room.isStarted,
+            hasDeclaredUno: false // Track if safe from penalties
         };
         
         room.players.push(newPlayer);
@@ -155,6 +155,7 @@ io.on('connection', (socket) => {
             p.hand = []; 
             p.finished = false;
             p.isSpectator = false; 
+            p.hasDeclaredUno = false;
             for(let i=0; i<7; i++) {
                 if(room.deck.length > 0) p.hand.push(room.deck.pop());
             }
@@ -175,8 +176,6 @@ io.on('connection', (socket) => {
     socket.on('drawCardRequest', () => {
         const room = findRoomByPlayerId(socket.id);
         if (!room || !room.isStarted || room.players[room.currentTurn].id !== socket.id) return;
-        
-        // If they already drew and didn't play their custom card choice, don't let them spam draw
         if(room.pendingDrawnPlayableCard) return;
 
         const player = room.players[room.currentTurn];
@@ -189,17 +188,17 @@ io.on('connection', (socket) => {
 
         const drawnCard = room.deck.pop();
         player.hand.push(drawnCard);
+        
+        // Drawing a card resets the UNO call requirement state safely
+        player.hasDeclaredUno = false;
 
         const topCard = room.discardPile[room.discardPile.length - 1];
         
-        // INSTANT TURN AFTER DRAW RULE CHECKER:
         if (isValidUnoMove(drawnCard, topCard, room.activeWildColor)) {
-            // Drawn card is playable! Give them the option via temporary hold state
             room.pendingDrawnPlayableCard = { playerIndex: room.currentTurn, cardIndex: player.hand.length - 1 };
             io.to(player.id).emit('systemNotification', `💡 You drew a playable [${drawnCard.color} ${drawnCard.value}]! Click it now to play, or click the deck again to pass your turn.`);
             broadcastGameState(room);
         } else {
-            // Drawn card is not playable. Pass turn instantly as per strict rule book
             io.to(room.id).emit('systemNotification', `🎴 ${player.name} drew a card and passed.`);
             moveToNextTurn(room);
             broadcastGameState(room);
@@ -216,28 +215,30 @@ io.on('connection', (socket) => {
 
         const topCard = room.discardPile[room.discardPile.length - 1];
 
-        // RULE VIOLATION FILTERING:
         if (room.pendingDrawnPlayableCard) {
-            // If they are locked into an instant-turn verification block, they can ONLY play the drawn card
             if (data.index !== room.pendingDrawnPlayableCard.cardIndex) {
                 return socket.emit('errorAlert', "Rule Violation: You must play the exact card you just drew, or click the deck to pass!");
             }
         } else {
-            // Standard placement match filtering
             if (!isValidUnoMove(card, topCard, room.activeWildColor)) {
                 return socket.emit('errorAlert', `Illegal Play! Card must match ${room.activeWildColor || topCard.color} or value ${topCard.value}.`);
             }
         }
 
-        // Safe execution of action placement
+        // Execute action placement
         player.hand.splice(data.index, 1);
         room.discardPile.push(card);
-        room.activeWildColor = data.chosenColor; // Updates state with chosen pick from client dialog box
         
-        // Reset the dynamic turn-draw lock state safely
+        // Clear wild focus if playing a regular matching colored asset
+        if (card.color !== 'Wild') {
+            room.activeWildColor = null;
+        } else if (data.chosenColor) {
+            room.activeWildColor = data.chosenColor; 
+        }
+
         room.pendingDrawnPlayableCard = null;
 
-        // Apply Attack Cards Modifications
+        // Apply standard actions modifications
         if (card.value === 'Skip') moveToNextTurn(room);
         if (card.value === 'Reverse') room.direction *= -1;
         
@@ -245,6 +246,7 @@ io.on('connection', (socket) => {
             moveToNextTurn(room);
             const target = room.players[room.currentTurn];
             for(let i=0; i<2; i++) if(room.deck.length > 0) target.hand.push(room.deck.pop());
+            target.hasDeclaredUno = false;
             io.to(room.id).emit('systemNotification', `🎯 ${target.name} hit by Draw 2 penalty!`);
         }
         
@@ -252,7 +254,15 @@ io.on('connection', (socket) => {
             moveToNextTurn(room);
             const target = room.players[room.currentTurn];
             for(let i=0; i<4; i++) if(room.deck.length > 0) target.hand.push(room.deck.pop());
+            target.hasDeclaredUno = false;
             io.to(room.id).emit('systemNotification', `💥 ${target.name} hit by absolute Draw 4 penalty!`);
+        }
+
+        // --- ENFORCED STRICT 1-CARD UNO RULE CHECKER ---
+        if (player.hand.length === 1 && !player.hasDeclaredUno) {
+            // Player forgot to press "SHOUT UNO!" before dropped card went through
+            for(let i=0; i<2; i++) if(room.deck.length > 0) player.hand.push(room.deck.pop());
+            io.to(room.id).emit('systemNotification', `🚨 Penalty! ${player.name} failed to call UNO and was penalized +2 cards.`);
         }
 
         if (player.hand.length === 0 && !player.finished) {
@@ -265,7 +275,6 @@ io.on('connection', (socket) => {
         broadcastGameState(room);
     });
 
-    // Special click mechanism override to skip if you choose not to use your instant card drawing move
     socket.on('passTurnAfterDraw', () => {
         const room = findRoomByPlayerId(socket.id);
         if (!room || room.players[room.currentTurn].id !== socket.id) return;
@@ -281,11 +290,14 @@ io.on('connection', (socket) => {
         const room = findRoomByPlayerId(socket.id);
         if(room) {
             const player = room.players.find(p => p.id === socket.id);
-            io.to(room.id).emit('systemNotification', `📢 ${player.name} shouted UNO!`);
+            if(player) {
+                player.hasDeclaredUno = true;
+                io.to(room.id).emit('systemNotification', `📢 ${player.name} safely shouted UNO!`);
+            }
         }
     });
 
-    // --- GOD DASHBOARD FACTORY CONFIGS ---
+    // --- LOCKED DOWN VALIDATED ADMIN CONFIGS ---
     socket.on('adminAddCustomCard', (data) => {
         const room = findRoomByPlayerId(socket.id);
         if (!room) return;
@@ -295,12 +307,20 @@ io.on('connection', (socket) => {
         const target = room.players.find(p => p.id === data.targetId);
         if(target) {
             let customColor = data.color;
-            if (data.value === 'Wild' || data.value === 'Draw4' || data.value === 'WildSwap') {
+            let customValue = data.value;
+
+            // Restrict Wild properties explicitly to ensure authentic layouts
+            if (customValue === 'Wild' || customValue === 'Draw4' || customValue === 'WildSwap') {
                 customColor = 'Wild';
+            } else if (customColor === 'Wild') {
+                // If admin picks color 'Wild' but a number value, override it safely to a standard color
+                customColor = 'Red';
             }
+
             target.isSpectator = false;
-            target.hand.push({ color: customColor, value: data.value });
-            io.to(room.id).emit('systemNotification', `⚡ God Matrix injected [${customColor} ${data.value}] into ${target.name}'s system.`);
+            target.hand.push({ color: customColor, value: customValue });
+            target.hasDeclaredUno = false; // Reset safe status on inject updates
+            io.to(room.id).emit('systemNotification', `⚡ Admin generated authentic [${customColor} ${customValue}] into ${target.name}'s system.`);
             broadcastGameState(room);
         }
     });
@@ -340,4 +360,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Strict Rule Matrix Engine running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Enforced Rule Matrix Engine listening on port ${PORT}`));
