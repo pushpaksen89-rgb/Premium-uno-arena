@@ -60,6 +60,15 @@ function moveToNextTurn(room) {
     } while ((room.players[room.currentTurn].isSpectator || room.players[room.currentTurn].finished) && attempts < room.players.length);
 }
 
+// CRITICAL RULE CHECKER: Validates matching color, value, or active wild condition
+function isValidUnoMove(card, topCard, activeWildColor) {
+    if (card.color === 'Wild') return true; // Wilds are always playable
+    if (activeWildColor && card.color === activeWildColor) return true;
+    if (!activeWildColor && card.color === topCard.color) return true;
+    if (card.value === topCard.value) return true;
+    return false;
+}
+
 function broadcastGameState(room) {
     const currentTurnPlayer = room.players[room.currentTurn] || { name: "None", id: "" };
 
@@ -101,19 +110,19 @@ io.on('connection', (socket) => {
         if (!rooms[roomId]) {
             rooms[roomId] = {
                 id: roomId, players: [], deck: [], discardPile: [],
-                currentTurn: 0, direction: 1, isStarted: false, activeWildColor: null, standings: [], unoDeclarations: {}
+                currentTurn: 0, direction: 1, isStarted: false, activeWildColor: null, standings: [],
+                pendingDrawnPlayableCard: null // Tracks if a player has an instant draw-play option
             };
         }
         const room = rooms[roomId];
         
-        // If the game hasn't started yet, new players are NOT spectators; they are active round participants
         const newPlayer = {
             id: socket.id, 
             name: data.username || `User_${socket.id.slice(0,4)}`,
             hand: [], 
             isAdmin: (data.password === MASTER_ADMIN_PASS), 
             finished: false, 
-            isSpectator: room.isStarted // Only spectate if joining mid-match
+            isSpectator: room.isStarted 
         };
         
         room.players.push(newPlayer);
@@ -140,12 +149,12 @@ io.on('connection', (socket) => {
         room.direction = 1;
         room.activeWildColor = null;
         room.standings = [];
+        room.pendingDrawnPlayableCard = null;
 
-        // FORCE RESET AND DEAL: Convert all lobby waitlist players to active status and hand them 7 cards
         room.players.forEach(p => {
             p.hand = []; 
             p.finished = false;
-            p.isSpectator = false; // Wake up all players from lobby wait state
+            p.isSpectator = false; 
             for(let i=0; i<7; i++) {
                 if(room.deck.length > 0) p.hand.push(room.deck.pop());
             }
@@ -158,14 +167,18 @@ io.on('connection', (socket) => {
         }
         if(startingCard) room.discardPile.push(startingCard);
         
-        room.currentTurn = 0;
-        io.to(room.id).emit('systemNotification', "⚡ Match Matrix fully synchronized! Initial hands dealt.");
+        room.currentTurn = room.players.findIndex(p => !p.isSpectator);
+        io.to(room.id).emit('systemNotification', "⚡ Match Matrix fully synchronized! Rules fully loaded.");
         broadcastGameState(room);
     });
 
     socket.on('drawCardRequest', () => {
         const room = findRoomByPlayerId(socket.id);
         if (!room || !room.isStarted || room.players[room.currentTurn].id !== socket.id) return;
+        
+        // If they already drew and didn't play their custom card choice, don't let them spam draw
+        if(room.pendingDrawnPlayableCard) return;
+
         const player = room.players[room.currentTurn];
 
         if(room.deck.length === 0) {
@@ -176,8 +189,21 @@ io.on('connection', (socket) => {
 
         const drawnCard = room.deck.pop();
         player.hand.push(drawnCard);
-        moveToNextTurn(room);
-        broadcastGameState(room);
+
+        const topCard = room.discardPile[room.discardPile.length - 1];
+        
+        // INSTANT TURN AFTER DRAW RULE CHECKER:
+        if (isValidUnoMove(drawnCard, topCard, room.activeWildColor)) {
+            // Drawn card is playable! Give them the option via temporary hold state
+            room.pendingDrawnPlayableCard = { playerIndex: room.currentTurn, cardIndex: player.hand.length - 1 };
+            io.to(player.id).emit('systemNotification', `💡 You drew a playable [${drawnCard.color} ${drawnCard.value}]! Click it now to play, or click the deck again to pass your turn.`);
+            broadcastGameState(room);
+        } else {
+            // Drawn card is not playable. Pass turn instantly as per strict rule book
+            io.to(room.id).emit('systemNotification', `🎴 ${player.name} drew a card and passed.`);
+            moveToNextTurn(room);
+            broadcastGameState(room);
+        }
     });
 
     socket.on('playCardRequest', (data) => {
@@ -188,12 +214,46 @@ io.on('connection', (socket) => {
         const card = player.hand[data.index];
         if(!card) return;
 
+        const topCard = room.discardPile[room.discardPile.length - 1];
+
+        // RULE VIOLATION FILTERING:
+        if (room.pendingDrawnPlayableCard) {
+            // If they are locked into an instant-turn verification block, they can ONLY play the drawn card
+            if (data.index !== room.pendingDrawnPlayableCard.cardIndex) {
+                return socket.emit('errorAlert', "Rule Violation: You must play the exact card you just drew, or click the deck to pass!");
+            }
+        } else {
+            // Standard placement match filtering
+            if (!isValidUnoMove(card, topCard, room.activeWildColor)) {
+                return socket.emit('errorAlert', `Illegal Play! Card must match ${room.activeWildColor || topCard.color} or value ${topCard.value}.`);
+            }
+        }
+
+        // Safe execution of action placement
         player.hand.splice(data.index, 1);
         room.discardPile.push(card);
-        room.activeWildColor = data.chosenColor;
+        room.activeWildColor = data.chosenColor; // Updates state with chosen pick from client dialog box
+        
+        // Reset the dynamic turn-draw lock state safely
+        room.pendingDrawnPlayableCard = null;
 
+        // Apply Attack Cards Modifications
         if (card.value === 'Skip') moveToNextTurn(room);
         if (card.value === 'Reverse') room.direction *= -1;
+        
+        if (card.value === 'Draw2') {
+            moveToNextTurn(room);
+            const target = room.players[room.currentTurn];
+            for(let i=0; i<2; i++) if(room.deck.length > 0) target.hand.push(room.deck.pop());
+            io.to(room.id).emit('systemNotification', `🎯 ${target.name} hit by Draw 2 penalty!`);
+        }
+        
+        if (card.value === 'Draw4') {
+            moveToNextTurn(room);
+            const target = room.players[room.currentTurn];
+            for(let i=0; i<4; i++) if(room.deck.length > 0) target.hand.push(room.deck.pop());
+            io.to(room.id).emit('systemNotification', `💥 ${target.name} hit by absolute Draw 4 penalty!`);
+        }
 
         if (player.hand.length === 0 && !player.finished) {
             player.finished = true;
@@ -205,6 +265,18 @@ io.on('connection', (socket) => {
         broadcastGameState(room);
     });
 
+    // Special click mechanism override to skip if you choose not to use your instant card drawing move
+    socket.on('passTurnAfterDraw', () => {
+        const room = findRoomByPlayerId(socket.id);
+        if (!room || room.players[room.currentTurn].id !== socket.id) return;
+        if (room.pendingDrawnPlayableCard) {
+            room.pendingDrawnPlayableCard = null;
+            io.to(room.id).emit('systemNotification', `⏭️ Player passed turn after choosing not to drop drawn item.`);
+            moveToNextTurn(room);
+            broadcastGameState(room);
+        }
+    });
+
     socket.on('declareUnoSignal', () => {
         const room = findRoomByPlayerId(socket.id);
         if(room) {
@@ -213,7 +285,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- GOD MODE OVERRIDES ---
+    // --- GOD DASHBOARD FACTORY CONFIGS ---
     socket.on('adminAddCustomCard', (data) => {
         const room = findRoomByPlayerId(socket.id);
         if (!room) return;
@@ -226,12 +298,9 @@ io.on('connection', (socket) => {
             if (data.value === 'Wild' || data.value === 'Draw4' || data.value === 'WildSwap') {
                 customColor = 'Wild';
             }
-            
-            // If injecting to a spectator, convert them to an active participant instantly
             target.isSpectator = false;
-            
             target.hand.push({ color: customColor, value: data.value });
-            io.to(room.id).emit('systemNotification', `⚡ Admin generated [${customColor} ${data.value}] into ${target.name}'s hand.`);
+            io.to(room.id).emit('systemNotification', `⚡ God Matrix injected [${customColor} ${data.value}] into ${target.name}'s system.`);
             broadcastGameState(room);
         }
     });
@@ -271,4 +340,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Supreme Matrix Server listening on port ${PORT}`));
+server.listen(PORT, () => console.log(`Strict Rule Matrix Engine running on port ${PORT}`));

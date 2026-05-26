@@ -35,6 +35,7 @@
             flex-direction: column;
         }
 
+        /* CARTOONISH SUPREME TITLE HEADER BAR */
         .header-container {
             margin: 15px auto 10px auto;
             text-align: center;
@@ -65,6 +66,7 @@
             text-shadow: 0 0 10px rgba(0,236,255,0.7), 2px 2px 2px #000;
         }
 
+        /* GRID LAYOUT SCHEMA */
         .main-layout {
             display: grid;
             grid-template-columns: 1fr 340px;
@@ -133,6 +135,7 @@
 
         #gameArea { display: none; width: 100%; }
 
+        /* RIGHT SIDEBAR PANEL */
         .sidebar {
             background: rgba(15, 10, 36, 0.9);
             border: 3px solid #3c2475;
@@ -176,6 +179,7 @@
 
         .game-core { display: flex; flex-direction: column; gap: 20px; }
 
+        /* THE 3D DIAGONAL SHIELD CARD DESIGN */
         .uno-card {
             display: inline-block;
             position: relative;
@@ -313,6 +317,7 @@
             background: radial-gradient(circle, #25165c 0%, #100830 100%); padding: 40px; border-radius: 30px; border: 5px solid #00ecff; box-shadow: 0 0 40px #00ecff; text-align: center; max-width: 420px;
         }
 
+        /* OMNIPOTENT FACTORY GOD COCKPIT OVERLAY */
         #adminDashboard {
             display: none; background: linear-gradient(135deg, #250531 0%, #060517 100%); border-radius: 24px; border: 4px solid #ff007f; padding: 25px; margin-top: 30px;
         }
@@ -373,7 +378,7 @@
                     </div>
                     <div class="pile-box">
                         <h3>Main Deck</h3>
-                        <div class="deck-back-btn" onclick="socket.emit('drawCardRequest')">
+                        <div class="deck-back-btn" onclick="handleDeckClickEngine()">
                             <div class="deck-back-logo">UNO</div>
                         </div>
                     </div>
@@ -439,6 +444,7 @@
         let localStream = null;
         let peers = {};
         let pendingCardIndex = null;
+        let globalDrawnLockState = false; // Synchronizes official draw-and-play states
 
         function connectArena() {
             const username = document.getElementById('usernameInput').value;
@@ -450,6 +456,16 @@
             document.getElementById('authContainer').style.display = 'none';
             document.getElementById('gameArea').style.display = 'block';
             initiateVoiceAudioSystems();
+        }
+
+        /* STRICT INTERACTIVE RULE COMPLIANCE HANDLER */
+        function handleDeckClickEngine() {
+            if (globalDrawnLockState) {
+                socket.emit('passTurnAfterDraw');
+                globalDrawnLockState = false;
+            } else {
+                socket.emit('drawCardRequest');
+            }
         }
 
         function sendChatMessage() {
@@ -551,11 +567,16 @@
 
         socket.on('gameStateUpdate', (data) => {
             const indicator = document.getElementById('turnIndicator');
+            
+            if(!data.isYourTurn) {
+                globalDrawnLockState = false; // Wipe turn locking conditions when hands change
+            }
+
             if(data.isSpectator) {
                 indicator.innerText = `Spectating... (${data.currentTurnName}'s Turn)`;
                 indicator.style.color = "#ffa502";
             } else if(data.isYourTurn) { 
-                indicator.innerText = "YOUR TURN! Play a card."; 
+                indicator.innerText = "YOUR TURN! Play matching item."; 
                 indicator.style.color = "#22cc44"; 
             } else { 
                 indicator.innerText = `${data.currentTurnName}'s Turn...`; 
@@ -631,6 +652,11 @@
         socket.on('systemNotification', (msg) => {
             const feed = document.getElementById('sysNotify');
             feed.innerText = msg; feed.style.display = 'block';
+            
+            // Set local interactive tracking true if user draws a dynamic playable selection
+            if(msg.includes("You drew a playable")) {
+                globalDrawnLockState = true;
+            }
             setTimeout(() => { feed.style.display = 'none'; }, 4000);
         });
 
