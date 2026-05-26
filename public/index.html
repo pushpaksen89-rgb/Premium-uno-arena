@@ -5,9 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>UNO Royale Arena</title>
     <script src="/socket.io/socket.io.js"></script>
-    <script>
-        window.process = { env: { NODE_ENV: 'production' } };
-    </script>
+    <script>window.process = { env: { NODE_ENV: 'production' } };</script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
     
     <style>
@@ -17,185 +15,223 @@
             --yellow: #ffa502;
             --green: #2ed573;
             --wild: #1e272e;
+            --neon-glow: 0 0 20px rgba(0,236,255,0.6);
         }
         body {
-            background-color: #0d0d1a;
+            background: radial-gradient(circle at center, #1a1a3a 0%, #070714 70%, #020208 100%);
             color: #ffffff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
             margin: 0;
             padding: 20px;
+            min-height: 100vh;
+        }
+        
+        /* HEADER RECONSTRUCTED */
+        .header-container {
+            margin-bottom: 30px;
             text-align: center;
         }
-        header {
-            border-bottom: 2px solid #202040;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
+        .main-heading {
+            font-size: 3.5rem;
+            font-weight: 900;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            background: linear-gradient(45deg, var(--red), var(--yellow), var(--green), var(--blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
         }
         .signature {
             color: #00ecff;
-            font-size: 1.1rem;
-            letter-spacing: 2px;
+            font-size: 1rem;
+            letter-spacing: 3px;
             font-weight: bold;
-            text-shadow: 0 0 10px rgba(0,236,255,0.4);
-            margin: 5px 0;
+            margin-top: 5px;
+            text-shadow: 0 0 8px rgba(0,236,255,0.5);
         }
+
+        /* CARD CONTAINERS WITH ROUNDED TEXTURE */
         .auth-card {
-            background: #151528;
-            max-width: 420px;
-            margin: 80px auto;
+            background: rgba(21, 21, 40, 0.75);
+            backdrop-filter: blur(12px);
+            max-width: 460px;
+            margin: 40px auto;
             padding: 35px;
-            border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-            border: 1px solid #2a2a50;
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8), var(--neon-glow);
+            border: 2px solid #2a2a50;
         }
-        input, button {
+        input, select, button {
             width: 100%;
             padding: 14px;
             margin: 10px 0;
-            border-radius: 8px;
+            border-radius: 12px;
             border: none;
             font-size: 1rem;
             box-sizing: border-box;
         }
-        input { background: #222240; color: white; border: 1px solid #3b3b70; }
-        button { background: #2ed573; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:hover { background: #26af5f; filter: brightness(1.2); }
+        input, select { background: #1b1b36; color: white; border: 1px solid #3b3b70; }
+        button { background: linear-gradient(90deg, #2ed573, #26af5f); color: white; font-weight: bold; cursor: pointer; transition: transform 0.2s, filter 0.2s; }
+        button:hover { transform: scale(1.02); filter: brightness(1.2); }
         
-        #gameArea { display: none; max-width: 1200px; margin: 0 auto; }
+        #gameArea { display: none; max-width: 1300px; margin: 0 auto; position: relative; }
         
-        /* REAL-TIME VOICE TERMINAL HUD */
-        .voice-dock { 
-            background: #141430; 
+        /* FLOATING COMPACT VOICE ROOM CAP */
+        .voice-mini-dock { 
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(10, 10, 26, 0.9); 
             border: 1px solid #00ecff; 
-            padding: 15px; 
-            border-radius: 12px; 
-            margin-bottom: 20px; 
+            padding: 10px 15px; 
+            border-radius: 30px; 
+            z-index: 1000;
             display: flex; 
-            justify-content: space-between; 
             align-items: center; 
+            gap: 12px;
+            box-shadow: 0 4px 15px rgba(0,236,255,0.3);
+            font-size: 0.85rem;
         }
-        .mic-btn { width: auto; padding: 10px 20px; background: #00ecff; color: #000; margin: 0; }
+        .mic-btn-small { width: auto; padding: 6px 14px; background: #00ecff; color: #000; margin: 0; border-radius: 20px; font-size: 0.8rem; }
 
-        /* PREMIUM DIAGONAL OVAL CARD MATRIX */
+        /* MULTI-USER CHAT HUD */
+        .chat-container {
+            background: rgba(15, 15, 35, 0.8);
+            border-radius: 16px;
+            border: 1px solid #3b3b70;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: left;
+        }
+        .chat-logs { height: 120px; overflow-y: auto; background: #0b0b18; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; }
+        .chat-msg { margin-bottom: 6px; }
+        .chat-msg .author { color: #00ecff; font-weight: bold; }
+
+        /* UNO PLAYING CARD DEFINITIONS */
         .uno-card { 
             display: inline-block; 
             position: relative; 
             width: 100px; 
             height: 150px; 
-            border-radius: 12px; 
+            border-radius: 14px; 
             border: 4px solid white; 
-            box-shadow: 0 6px 15px rgba(0,0,0,0.6); 
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6); 
             cursor: pointer; 
             overflow: hidden; 
             transition: transform 0.2s, box-shadow 0.2s; 
-            user-select: none;
         }
-        .uno-card:hover { transform: translateY(-15px) scale(1.05); z-index: 10; box-shadow: 0 0 15px rgba(255,255,255,0.4); }
-        
-        /* 3D Oval Shield inside the Card */
+        .uno-card:hover { transform: translateY(-15px) rotate(2deg); z-index: 10; box-shadow: 0 0 20px rgba(255,255,255,0.5); }
         .uno-card::before { 
             content: ''; 
             position: absolute; 
-            width: 115px; 
-            height: 80px; 
-            background: rgba(255,255,255,0.22); 
+            width: 120px; 
+            height: 85px; 
+            background: rgba(255,255,255,0.25); 
             border-radius: 50%; 
             top: 50%; 
             left: 50%; 
             transform: translate(-50%, -50%) rotate(-28deg); 
         }
-        .card-inner-value { 
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%); 
-            font-size: 2.3rem; 
-            font-weight: 900; 
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.6); 
-        }
+        .card-inner-value { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2.4rem; font-weight: 900; text-shadow: 2px 2px 4px rgba(0,0,0,0.6); }
         .card-corner { position: absolute; font-size: 0.95rem; font-weight: bold; padding: 5px; }
         .top-left { top: 0; left: 0; }
         .bottom-right { bottom: 0; right: 0; transform: rotate(180deg); }
 
-        /* Premium Theme Core Colors */
-        .Red { background-color: var(--red); } 
-        .Blue { background-color: var(--blue); } 
-        .Yellow { background-color: var(--yellow); } 
-        .Green { background-color: var(--green); }
+        .Red { background-color: var(--red); } .Blue { background-color: var(--blue); } .Yellow { background-color: var(--yellow); } .Green { background-color: var(--green); }
         .Wild { background: radial-gradient(circle, #ff3838 20%, #1e90ff 40%, #ffa502 60%, #2ed573 80%); }
 
         .center-board { display: flex; justify-content: center; align-items: center; gap: 50px; margin: 30px 0; }
-        .hand { display: flex; justify-content: center; gap: 12px; margin-top: 30px; flex-wrap: wrap; padding: 20px; background: rgba(255,255,255,0.02); border-radius: 16px; min-height: 160px; }
+        .hand { display: flex; justify-content: center; gap: 12px; margin-top: 25px; flex-wrap: wrap; padding: 20px; background: rgba(255,255,255,0.03); border-radius: 20px; min-height: 160px; border: 1px dashed rgba(255,255,255,0.1); }
         
-        /* WILD COLOUR INTERACTIVE SELECTION DIALOG */
-        #colorPickerModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 200; justify-content: center; align-items: center; }
-        .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #151528; padding: 30px; border-radius: 16px; border: 1px solid #3b3b70; }
-        .grid-choice { width: 120px; height: 120px; border-radius: 12px; cursor: pointer; border: 3px solid white; font-weight: bold; display: flex; justify-content: center; align-items: center; text-shadow: 1px 1px 3px black; transition: transform 0.1s; }
-        .grid-choice:hover { transform: scale(1.05); }
+        #colorPickerModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; justify-content: center; align-items: center; }
+        .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #151528; padding: 30px; border-radius: 24px; border: 2px solid #3b3b70; }
+        .grid-choice { width: 120px; height: 120px; border-radius: 16px; cursor: pointer; border: 3px solid white; font-weight: bold; display: flex; justify-content: center; align-items: center; text-shadow: 1px 1px 3px black; }
 
-        /* LIVE FEEDS */
-        #sysNotify { background: rgba(0,236,255,0.1); color: #00ecff; padding: 10px; border-radius: 8px; margin: 15px auto; max-width: 600px; font-weight: bold; display: none; border: 1px solid rgba(0,236,255,0.3); }
-
-        #celebrationBox { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; justify-content: center; align-items: center; flex-direction: column; }
-        #adminDashboard { display: none; margin-top: 50px; padding: 25px; background: linear-gradient(135deg, #20003b 0%, #00001a 100%); border-radius: 12px; border: 2px solid #ff007f; text-align: left; }
+        #sysNotify { background: rgba(0,236,255,0.15); color: #00ecff; padding: 12px; border-radius: 12px; margin: 15px auto; max-width: 600px; font-weight: bold; display: none; border: 1px solid rgba(0,236,255,0.4); }
+        #adminDashboard { display: none; margin-top: 40px; padding: 25px; background: linear-gradient(135deg, #1f0023 0%, #050515 100%); border-radius: 20px; border: 2px solid #ff007f; text-align: left; }
     </style>
 </head>
 <body>
 
-    <header>
+    <div class="header-container">
+        <h1 class="main-heading">Uno Royale Supreme</h1>
         <div class="signature">Developed by- PUSHPAK</div>
-        <h1>UNO ROYALE SUPREME</h1>
-    </header>
+    </div>
 
     <div id="sysNotify">Feed Active</div>
 
     <div id="authContainer" class="auth-card">
-        <h3>Connect Game Arena</h3>
-        <input type="text" id="usernameInput" placeholder="Enter Nickname...">
+        <h3 style="margin-top:0; text-align:center;">Enter Match Portal</h3>
+        <input type="text" id="usernameInput" placeholder="Your Handle / Nickname...">
+        
+        <label style="font-size:0.85rem; color:#aaa; display:block; margin-top:10px;">Select Active Server Target:</label>
+        <select id="roomSelector">
+            <option value="Arena_1">Server Room 01 (Grand Arena)</option>
+            <option value="Arena_2">Server Room 02 (Neon Abyss)</option>
+            <option value="Arena_3">Server Room 03 (Chronos Vault)</option>
+            <option value="Arena_4">Server Room 04</option>
+            <option value="Arena_5">Server Room 05</option>
+            <option value="Arena_6">Server Room 06</option>
+            <option value="Arena_7">Server Room 07</option>
+            <option value="Arena_8">Server Room 08</option>
+            <option value="Arena_9">Server Room 09</option>
+            <option value="Arena_10">Server Room 10 (Supreme Sanctum)</option>
+        </select>
+        
         <input type="password" id="accessPass" placeholder="Secret Admin Key (Optional)">
         <button onclick="connectArena()">Launch Engine Matrix</button>
     </div>
 
     <div id="gameArea">
-        <div class="voice-dock">
-            <div>🎙️ <strong>Voice Room Stream:</strong> <span id="voiceStatus">Linking terminal stream...</span></div>
-            <button id="micToggleBtn" class="mic-btn" onclick="toggleMuteState()">Mute Mic</button>
+        <div class="voice-mini-dock">
+            <div>🎙️ <span id="voiceStatus">Linking...</span></div>
+            <button id="micToggleBtn" class="mic-btn-small" onclick="toggleMuteState()">Mute</button>
         </div>
 
-        <h2 id="turnIndicator">Establishing server sync...</h2>
-        <button id="startBtn" onclick="socket.emit('startGameSignal')" style="max-width: 250px; display: none; background: #ff3838; margin: 10px auto; box-shadow: 0 0 15px #ff3838;">Launch Match</button>
+        <h2 id="turnIndicator">Awaiting server sync stream...</h2>
+        <button id="startBtn" onclick="socket.emit('startGameSignal')" style="max-width: 250px; display: none; background: linear-gradient(90deg, #ff3838, #ff4d4d); margin: 10px auto;">Launch Match Matrix</button>
         
         <div class="center-board">
             <div>
                 <h3>Discard Pile</h3>
                 <div id="topCardTarget"></div>
-                <h4 id="wildColorAlert" style="margin-top: 10px; letter-spacing: 1px;"></h4>
+                <h4 id="wildColorAlert" style="margin-top: 10px;"></h4>
             </div>
             <div>
                 <h3>Main Deck</h3>
-                <button onclick="socket.emit('drawCardRequest')" style="width: 100px; height: 150px; background: #222240; border: 3px dashed #444488; border-radius: 12px; font-weight:bold; color:white; cursor:pointer;">DRAW CARD</button>
+                <button onclick="socket.emit('drawCardRequest')" style="width: 100px; height: 150px; background: #161630; border: 3px dashed #3a3a75; border-radius: 14px; font-weight:bold; color:white; cursor:pointer;">DRAW CARD</button>
             </div>
         </div>
 
-        <button onclick="socket.emit('declareUnoSignal')" style="background: linear-gradient(45deg, #ffa502, #ff3838); max-width: 240px; font-size: 1.3rem; letter-spacing:1px; box-shadow: 0 0 15px #ff3838; margin-bottom: 25px;">📢 SHOUT UNO!</button>
+        <button onclick="socket.emit('declareUnoSignal')" style="background: linear-gradient(45deg, #ffa502, #ff3838); max-width: 240px; font-size: 1.2rem; margin-bottom: 20px;">📢 SHOUT UNO!</button>
 
         <div style="margin: 20px 0;">
-            <h3>Active Match Standings</h3>
-            <div id="playerListSummary" style="display: flex; justify-content: center; gap: 25px; flex-wrap: wrap;"></div>
+            <h3>Active Competitors</h3>
+            <div id="playerListSummary" style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;"></div>
         </div>
 
-        <h3>Your Playable Hand:</h3>
+        <h3>Your Action Cards:</h3>
         <div id="handDisplay" class="hand"></div>
 
+        <div class="chat-container">
+            <h4>💬 Arena Text Broadcast Communications</h4>
+            <div id="chatLogs" class="chat-logs"></div>
+            <div style="display:flex; gap:10px;">
+                <input type="text" id="chatInput" placeholder="Broadcast string across room connection network..." style="margin:0;" onkeydown="if(event.key==='Enter') sendChatMessage()">
+                <button onclick="sendChatMessage()" style="width:120px; margin:0; background:#1e90ff;">Send</button>
+            </div>
+        </div>
+
         <div id="adminDashboard">
-            <h2 style="color: #ff007f; margin:0 0 15px 0;">⚡ Host Matrix Oversight Controls</h2>
+            <h2 style="color: #ff007f; margin:0 0 15px 0;">⚡ Host Matrix Oversight Operations (Omnipotent Mode)</h2>
             <div id="adminPlayerStream"></div>
         </div>
     </div>
 
     <div id="colorPickerModal">
         <div class="color-grid">
-            <h3 style="grid-column: span 2; margin: 0 0 10px 0; text-align: center;">Select Wild Color Target:</h3>
+            <h3 style="grid-column: span 2; margin: 0 0 10px 0; text-align: center;">Choose Wild Color Strategy:</h3>
             <div class="grid-choice Red" onclick="selectColorAction('Red')">RED</div>
             <div class="grid-choice Blue" onclick="selectColorAction('Blue')">BLUE</div>
             <div class="grid-choice Yellow" onclick="selectColorAction('Yellow')">YELLOW</div>
@@ -203,17 +239,7 @@
         </div>
     </div>
 
-    <div id="celebrationBox">
-        <div style="background: #1a1a3a; padding: 40px; border-radius: 20px; border: 2px solid #00ecff; box-shadow: 0 0 30px #00ecff; text-align: center;">
-            <h1 style="color: #ffa502; font-size: 2.8rem; margin:0;">🎉 HAND CLEARED! 🎉</h1>
-            <h2 id="celebWinnerMsg" style="margin: 15px 0;">Player cleared cards!</h2>
-            <div id="standingsBox" style="text-align: left; margin: 20px 0; padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px; min-width: 280px;"></div>
-            <button onclick="document.getElementById('celebrationBox').style.display='none'" style="max-width: 180px;">Return Arena</button>
-        </div>
-    </div>
-
     <script>
-        // Explicitly force connection handler handshake straight to hosting domain origin
         const socket = io(window.location.origin);
         let localStream = null;
         let peers = {};
@@ -222,88 +248,82 @@
         function connectArena() {
             const username = document.getElementById('usernameInput').value;
             const pass = document.getElementById('accessPass').value;
+            const roomTarget = document.getElementById('roomSelector').value;
             if(!username) return alert("Enter nickname!");
 
-            socket.emit('joinGame', { username: username, password: pass });
+            socket.emit('joinGame', { username: username, password: pass, room: roomTarget });
             document.getElementById('authContainer').style.display = 'none';
             document.getElementById('gameArea').style.display = 'block';
             
             initiateVoiceAudioSystems();
         }
 
-        // --- STABLE PEER AUDIO NETWORKING ---
+        function sendChatMessage() {
+            const inp = document.getElementById('chatInput');
+            if(!inp.value.trim()) return;
+            socket.emit('textMessageSignal', inp.value);
+            inp.value = '';
+        }
+
+        socket.on('incomingTextMessage', (data) => {
+            const logs = document.getElementById('chatLogs');
+            logs.innerHTML += `<div class="chat-msg"><span class="author">${data.user}:</span> ${data.text}</div>`;
+            logs.scrollTop = logs.scrollHeight;
+        });
+
+        // --- WEBRTC COMPACT VOICE CHAT ENGINE ---
         async function initiateVoiceAudioSystems() {
             try {
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.SimplePeer) {
-                    document.getElementById('voiceStatus').innerText = "Audio Room streaming unsupported.";
+                    document.getElementById('voiceStatus').innerText = "Unsupported";
                     return;
                 }
-
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                document.getElementById('voiceStatus').innerText = "Voice Link Live! 🎙️";
+                document.getElementById('voiceStatus').innerText = "Live 🎙️";
                 socket.emit('voice-join');
                 
-                socket.on('voice-peer-joined', (peerId) => {
-                    initiatePeerConnection(peerId, true);
-                });
-
+                socket.on('voice-peer-joined', (peerId) => initiatePeerConnection(peerId, true));
                 socket.on('voice-signal', (data) => {
                     if (!peers[data.from]) initiatePeerConnection(data.from, false);
                     peers[data.from].signal(data.signal);
                 });
             } catch (err) {
-                console.log("Mic bypass engaged:", err);
-                document.getElementById('voiceStatus').innerText = "Audio Muted (Permission Required)";
+                document.getElementById('voiceStatus').innerText = "Muted";
             }
         }
 
         function initiatePeerConnection(peerId, initiator) {
             try {
                 const peer = new SimplePeer({ initiator: initiator, trickle: false, stream: localStream });
-                
-                peer.on('signal', (signal) => {
-                    socket.emit('voice-signal', { to: peerId, signal: signal });
-                });
-
+                peer.on('signal', (signal) => socket.emit('voice-signal', { to: peerId, signal: signal }));
                 peer.on('stream', (stream) => {
                     const audio = document.createElement('audio');
                     audio.srcObject = stream;
                     audio.play();
                 });
-
                 peers[peerId] = peer;
-            } catch (e) {
-                console.error("WebRTC frame dropped safe block:", e);
-            }
+            } catch (e) {}
         }
 
         function toggleMuteState() {
             if (!localStream) return;
             const enabled = localStream.getAudioTracks()[0].enabled;
-            if (enabled) {
-                localStream.getAudioTracks()[0].enabled = false;
-                document.getElementById('micToggleBtn').innerText = "Unmute Mic";
-                document.getElementById('micToggleBtn').style.background = "#ff3838";
-            } else {
-                localStream.getAudioTracks()[0].enabled = true;
-                document.getElementById('micToggleBtn').innerText = "Mute Mic";
-                document.getElementById('micToggleBtn').style.background = "#00ecff";
-            }
+            localStream.getAudioTracks()[0].enabled = !enabled;
+            document.getElementById('micToggleBtn').innerText = enabled ? "Unmute" : "Mute";
+            document.getElementById('micToggleBtn').style.background = enabled ? "#ff3838" : "#00ecff";
         }
 
-        // --- VISUAL RENDERING CONSOLE ENGINE ---
         function renderUnoCardMarkup(card, onClickFn) {
             const cardDiv = document.createElement('div');
             cardDiv.className = `uno-card ${card.color}`;
             if(onClickFn) cardDiv.onclick = onClickFn;
 
-            let val = card.value;
-            let displayVal = val;
-            if(val === 'Skip') displayVal = '⊘'; 
-            if(val === 'Reverse') displayVal = '⇄';
-            if(val === 'Draw2') displayVal = '+2'; 
-            if(val === 'Draw4') displayVal = '+4';
-            if(val === 'Wild' && card.color === 'Wild') displayVal = 'W';
+            let displayVal = card.value;
+            if(card.value === 'Skip') displayVal = '⊘'; 
+            if(card.value === 'Reverse') displayVal = '⇄';
+            if(card.value === 'Draw2') displayVal = '+2'; 
+            if(card.value === 'Draw4') displayVal = '+4';
+            if(card.value === 'Wild' && card.color === 'Wild') displayVal = 'W';
 
             cardDiv.innerHTML = `
                 <div class="card-corner top-left">${displayVal}</div>
@@ -328,11 +348,14 @@
             pendingCardIndex = null;
         }
 
-        // --- PACKET SYNC CONTROLLERS ---
+        // --- GAME UPDATE STATE MAPS ---
         socket.on('gameStateUpdate', (data) => {
             const indicator = document.getElementById('turnIndicator');
-            if(data.isYourTurn) { 
-                indicator.innerText = "YOUR TURN! Play a valid card."; 
+            if(data.isSpectator) {
+                indicator.innerText = `Spectating Match Engine... (${data.currentTurnName}'s Turn)`;
+                indicator.style.color = "#ffa502";
+            } else if(data.isYourTurn) { 
+                indicator.innerText = "YOUR TURN! Throw your matching color or symbol card."; 
                 indicator.style.color = "#2ed573"; 
             } else { 
                 indicator.innerText = `${data.currentTurnName}'s move...`; 
@@ -341,20 +364,18 @@
 
             const alertLabel = document.getElementById('wildColorAlert');
             if (data.activeWildColor) {
-                alertLabel.innerText = `Active Wild Target: ${data.activeWildColor.toUpperCase()}`;
+                alertLabel.innerText = `Active Wild Suit: ${data.activeWildColor.toUpperCase()}`;
                 alertLabel.style.color = `var(--${data.activeWildColor.toLowerCase()})`;
-            } else { 
-                alertLabel.innerText = ''; 
-            }
+            } else { alertLabel.innerText = ''; }
 
             const targetTop = document.getElementById('topCardTarget');
             targetTop.innerHTML = '';
-            targetTop.appendChild(renderUnoCardMarkup(data.topCard, null));
+            if(data.topCard) targetTop.appendChild(renderUnoCardMarkup(data.topCard, null));
 
             const handDisplay = document.getElementById('handDisplay');
             handDisplay.innerHTML = '';
             data.yourHand.forEach((card, index) => {
-                handDisplay.appendChild(renderUnoCardMarkup(card, () => processCardPlayAttempt(card, index)));
+                handDisplay.appendChild(renderUnoCardMarkup(card, data.isSpectator ? null : () => processCardPlayAttempt(card, index)));
             });
 
             const trackBox = document.getElementById('playerListSummary');
@@ -363,33 +384,28 @@
                 const el = document.createElement('div');
                 el.style.padding = '10px 15px'; 
                 el.style.background = p.active ? '#ff3838' : '#151528'; 
-                el.style.borderRadius = '8px';
-                el.style.border = p.finished ? '2px solid #2ed573' : '1px solid #3b3b70';
-                el.innerHTML = `<strong>${p.name}</strong>: ${p.finished ? '🏆 OUT' : p.count + ' cards'}`;
+                el.style.borderRadius = '12px';
+                el.innerHTML = `<strong>${p.name}</strong>: ${p.isSpectator ? '👁️ Spec' : p.count + ' cards'}`;
                 trackBox.appendChild(el);
             });
 
-            // --- ADMIN MATRIX PRIVILEGE ROUTER ---
+            // --- GOD MODE OVERRIDE MANAGEMENT PANEL ---
             if(data.allPlayersHandsSnapshot) {
                 document.getElementById('adminDashboard').style.display = 'block';
                 const container = document.getElementById('adminPlayerStream'); 
                 container.innerHTML = '';
                 data.allPlayersHandsSnapshot.forEach(p => {
                     const div = document.createElement('div');
-                    div.style.background = 'rgba(255,255,255,0.04)'; 
-                    div.style.padding = '12px'; 
-                    div.style.margin = '12px 0'; 
-                    div.style.borderRadius = '8px';
-                    div.style.display = 'flex'; 
-                    div.style.justifyContent = 'space-between';
-                    div.style.alignItems = 'center';
+                    div.style.background = 'rgba(255,255,255,0.04)'; div.style.padding = '15px'; div.style.margin = '10px 0'; div.style.borderRadius = '12px';
                     
-                    let handItemsStr = p.hand.map(c => `[${c.color} ${c.value}]`).join(', ') || 'No Cards Left';
+                    let handItemsStr = p.hand.map((c, idx) => `[${idx}: ${c.color} ${c.value}]`).join(', ') || 'No Cards (Or Spectating)';
                     div.innerHTML = `
-                        <div><strong>📡 Monitoring: ${p.name}</strong><br><span style="color:#00ecff; font-size:0.9rem;">${handItemsStr}</span></div>
-                        <div>
-                            <button onclick="socket.emit('adminDrainHand','${p.id}')" style="background:#ff0055; width:auto; padding:6px 12px; margin-right:5px; font-size:0.8rem;">Force Win</button>
-                            <button onclick="socket.emit('adminInjectCards','${p.id}')" style="background:#ffa502; width:auto; padding:6px 12px; font-size:0.8rem;">+4 Inject</button>
+                        <div><strong>📡 Tracking: ${p.name} ${p.finished ? '(OUT)' : ''}</strong><br><span style="color:#00ecff;">${handItemsStr}</span></div>
+                        <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+                            <button onclick="socket.emit('adminAddCustomCard', {targetId: '${p.id}', color: 'Red', value: 'Draw2'})" style="width:auto; padding:5px 10px; font-size:0.75rem; background:#ff3838;">Inject Red +2</button>
+                            <button onclick="socket.emit('adminAddCustomCard', {targetId: '${p.id}', color: 'Wild', value: 'Draw4'})" style="width:auto; padding:5px 10px; font-size:0.75rem; background:#1e272e;">Inject Wild +4</button>
+                            <button onclick="socket.emit('adminSwapWildCard', {targetId: '${p.id}'})" style="width:auto; padding:5px 10px; font-size:0.75rem; background:#ffa502;">Force Wild Swap</button>
+                            <button onclick="socket.emit('adminClearCards', '${p.id}')" style="width:auto; padding:5px 10px; font-size:0.75rem; background:#2ed573;">Drain Hand (Force Win)</button>
                         </div>`;
                     container.appendChild(div);
                 });
@@ -398,31 +414,15 @@
 
         socket.on('systemNotification', (msg) => {
             const feed = document.getElementById('sysNotify');
-            feed.innerText = msg; 
-            feed.style.display = 'block';
+            feed.innerText = msg; feed.style.display = 'block';
             setTimeout(() => { feed.style.display = 'none'; }, 4000);
         });
 
-        socket.on('celebrateWinner', (data) => {
-            document.getElementById('celebWinnerMsg').innerText = `🎉 ${data.winnerName} cleared their hand! 🎉`;
-            const box = document.getElementById('standingsBox'); 
-            box.innerHTML = '<h4>Leaderboard Placements:</h4>';
-            data.standings.forEach((name, idx) => { box.innerHTML += `<p>${idx + 1}. ${name} 🏆</p>`; });
-            document.getElementById('celebrationBox').style.display = 'flex';
-        });
-
         socket.on('updatePlayers', (list) => { 
-            if(list.length >= 2) document.getElementById('startBtn').style.display = 'block'; 
+            const activePlayersCount = list.filter(p => !p.isSpectator).length;
+            if(activePlayersCount >= 2) document.getElementById('startBtn').style.display = 'block'; 
         });
-        
         socket.on('errorAlert', (msg) => alert(msg));
-        
-        socket.on('gameOverEvent', (data) => { 
-            let msg = 'The match is completely finished!\n\nFinal Rankings:\n';
-            data.standings.forEach((name, i) => { msg += `${i+1}. ${name}\n`; });
-            alert(msg); 
-            location.reload(); 
-        });
     </script>
 </body>
 </html>
