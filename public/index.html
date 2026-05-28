@@ -346,7 +346,7 @@
                 gap: 10px;
             }
 
-            /* Shift turn indicator to high-priority space above everything */
+            /* Shift turn indicator up above everything else */
             #turnIndicator {
                 order: -2 !important;
                 margin: 5px 0 10px 0 !important;
@@ -376,7 +376,7 @@
                 flex-direction: row !important;
                 justify-content: space-between !important;
                 align-items: flex-end !important;
-                pointer-events: none !important; /* Click through empty spaces to reach cards */
+                pointer-events: none !important;
                 box-shadow: none !important;
                 gap: 0 !important;
             }
@@ -407,18 +407,17 @@
                 padding: 6px !important;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.6) !important;
             }
-            .chat-section h3 { display: none !important; } /* Hide heading row on mobile screen */
+            .chat-section h3 { display: none !important; } 
             .chat-logs {
-                height: 60px !important; /* Restricted low profile view */
+                height: 60px !important; 
                 font-size: 0.75rem !important;
                 margin-bottom: 4px !important;
                 padding: 4px !important;
             }
-            .chat-section style, .chat-section div { display: flex; }
             .chat-section input { font-size: 0.75rem !important; padding: 6px !important; border-radius: 8px !important; height: 28px !important; }
             .chat-section button { padding: 4px 8px !important; font-size: 0.75rem !important; border-radius: 8px !important; height: 28px !important; box-shadow: none !important; }
 
-            /* Pad out bottom of game layout slightly so cards don't sit under fixed panels */
+            /* Pad bottom out slightly so cards don't sit directly behind fixed elements */
             .game-core { padding-bottom: 110px; }
         }
     </style>
@@ -455,7 +454,7 @@
     <div id="gameArea">
         <div class="main-layout">
             <div class="game-core">
-                <!-- MOVED TURN INDICATOR TO THE HIGHEST ORDER SLOT (TOP OF CORE) -->
+                <!-- HIGH-PRIORITY TOP STATUS PLACEMENT -->
                 <h2 id="turnIndicator" style="text-align: center; font-size: 1.8rem; text-shadow: 2px 2px #000; margin: 0;">Waiting for server...</h2>
                 
                 <button id="startBtn" onclick="socket.emit('startGameSignal')" style="max-width: 250px; display: none; background: linear-gradient(135deg, var(--red), #cc1111); margin: 5px auto;">Launch Match Matrix</button>
@@ -490,7 +489,7 @@
                 </div>
             </div>
 
-            <!-- SIDEBAR DRAWER (STAYS ON RIGHT ON PC, DROPS INTO EFFICIENT FLOATING BOTTOM ACTION HUB ON MOBILE) -->
+            <!-- ADAPTIVE INTERACTION PANEL -->
             <div class="sidebar">
                 <div class="voice-section">
                     <div class="voice-status-pill">🎙️ <span id="voiceStatus">Linking...</span></div>
@@ -534,6 +533,9 @@
         let peers = {};
         let pendingCardIndex = null;
         let globalDrawnLockState = false; 
+        
+        // Edge transition state listener for haptics engine
+        let myTurnActiveLastState = false; 
 
         function connectArena() {
             const username = document.getElementById('usernameInput').value;
@@ -666,10 +668,20 @@
             } else if(data.isYourTurn) { 
                 indicator.innerText = "YOUR TURN! Drop Card."; 
                 indicator.style.color = "#22cc44"; 
+
+                // --- HARDWARE VIBRATION INTERCEPT ENGINE ---
+                if (!myTurnActiveLastState) {
+                    if (navigator.vibrate) {
+                        navigator.vibrate([300, 100, 300]); // Dual pulse alert (ignored safely on PCs)
+                    }
+                }
             } else { 
                 indicator.innerText = `${data.currentTurnName}'s Turn...`; 
                 indicator.style.color = "#ffffff"; 
             }
+
+            // Lock previous status footprint
+            myTurnActiveLastState = data.isYourTurn;
 
             const alertLabel = document.getElementById('wildColorAlert');
             if (data.activeWildColor) {
