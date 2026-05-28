@@ -7,7 +7,19 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>window.process = { env: { NODE_ENV: 'production' } };</script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
-    
+
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0b071e">
+
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('PWA Service Worker Active!', reg.scope))
+            .catch(err => console.log('Service Worker Failed', err));
+        });
+      }
+    </script>
     <style>
         :root {
             --red: #ff3333;
@@ -779,4 +791,4 @@
         socket.on('gameOverEvent', (data) => { alert("Match Over!"); location.reload(); });
     </script>
 </body>
-</html>
+</html>s
