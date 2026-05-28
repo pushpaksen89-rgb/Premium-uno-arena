@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>UNO Royale Supreme</title>
     <script src="/socket.io/socket.io.js"></script>
     <script>window.process = { env: { NODE_ENV: 'production' } };</script>
@@ -33,14 +33,15 @@
             overflow-x: hidden;
             display: flex;
             flex-direction: column;
+            box-sizing: border-box;
         }
 
         .header-container {
-            margin: 15px auto 10px auto;
+            margin: 10px auto;
             text-align: center;
         }
         .main-heading {
-            font-size: 4rem;
+            font-size: 3.5rem;
             font-weight: 900;
             margin: 0;
             text-transform: uppercase;
@@ -57,7 +58,7 @@
         }
         .signature {
             color: #00ecff;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             letter-spacing: 4px;
             font-weight: bold;
             margin-top: 5px;
@@ -65,6 +66,7 @@
             text-shadow: 0 0 10px rgba(0,236,255,0.7), 2px 2px 2px #000;
         }
 
+        /* LAYOUT ARCHITECTURE */
         .main-layout {
             display: grid;
             grid-template-columns: 1fr 340px;
@@ -73,11 +75,6 @@
             width: 100%;
             margin: 0 auto;
             flex-grow: 1;
-        }
-
-        @media (max-width: 1024px) {
-            .main-layout { grid-template-columns: 1fr; }
-            .sidebar { position: static !important; height: auto !important; }
         }
 
         .auth-card {
@@ -133,6 +130,7 @@
 
         #gameArea { display: none; width: 100%; }
 
+        /* LAPTOP DEFAULT SIDEBAR CONFIG */
         .sidebar {
             background: rgba(15, 10, 36, 0.9);
             border: 3px solid #3c2475;
@@ -145,6 +143,7 @@
             position: sticky;
             top: 20px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 1000;
         }
 
         .voice-section {
@@ -174,32 +173,33 @@
         .chat-entry { margin-bottom: 8px; line-height: 1.3; }
         .chat-sender { color: #00ecff; font-weight: bold; }
 
-        .game-core { display: flex; flex-direction: column; gap: 20px; }
+        .game-core { display: flex; flex-direction: column; gap: 15px; }
 
+        /* CARTOONISH 3D PLAYING ASSET */
         .uno-card {
             display: inline-block;
             position: relative;
-            width: 110px;
-            height: 165px;
-            border-radius: 18px;
-            border: 6px solid #ffffff;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.6), inset 0 0 10px rgba(0,0,0,0.3);
+            width: 100px;
+            height: 150px;
+            border-radius: 16px;
+            border: 5px solid #ffffff;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.6), inset 0 0 10px rgba(0,0,0,0.3);
             cursor: pointer;
             overflow: hidden;
             transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             user-select: none;
         }
         .uno-card:hover {
-            transform: translateY(-20px) rotate(3deg) scale(1.05);
-            box-shadow: 0 20px 30px rgba(0,0,0,0.8), 0 0 20px rgba(255,255,255,0.4);
+            transform: translateY(-15px) rotate(3deg) scale(1.05);
+            box-shadow: 0 16px 24px rgba(0,0,0,0.8), 0 0 15px rgba(255,255,255,0.4);
             z-index: 50;
         }
         .uno-card::before {
             content: '';
             position: absolute;
-            width: 125px;
-            height: 90px;
-            background: rgba(255, 255, 255, 0.28);
+            width: 115px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.25);
             border-radius: 50%;
             top: 50%;
             left: 50%;
@@ -210,17 +210,17 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 2.2rem;
+            font-size: 2rem;
             font-weight: 900;
             color: #ffffff;
-            text-shadow: 4px 4px 0px rgba(0,0,0,0.8);
+            text-shadow: 3px 3px 0px rgba(0,0,0,0.8);
             font-style: italic;
         }
         .card-corner {
             position: absolute;
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 900;
-            padding: 6px;
+            padding: 4px 6px;
             color: #ffffff;
             text-shadow: 2px 2px 0px rgba(0,0,0,0.8);
         }
@@ -237,63 +237,67 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 60px;
-            padding: 20px;
+            gap: 40px;
+            padding: 15px;
             background: rgba(255, 255, 255, 0.03);
             border-radius: 24px;
             border: 3px solid #3c2475;
         }
-        .pile-box h3 { margin-top: 0; color: #ffcc00; text-shadow: 1px 1px #000; }
+        .pile-box h3 { margin-top: 0; color: #ffcc00; text-shadow: 1px 1px #000; font-size: 1.1rem; text-align: center;}
         
         .deck-back-btn {
-            width: 110px;
-            height: 165px;
-            border-radius: 18px;
-            border: 6px solid #ffffff;
+            width: 100px;
+            height: 150px;
+            border-radius: 16px;
+            border: 5px solid #ffffff;
             background: repeating-linear-gradient(45deg, #ff3333, #ff3333 10px, #cc1111 10px, #cc1111 20px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.6);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.6);
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all 0.2s;
         }
         .deck-back-logo {
             background: #ffffff;
             color: #ff3333;
             font-weight: 900;
-            font-size: 1.8rem;
-            padding: 8px 12px;
+            font-size: 1.6rem;
+            padding: 6px 10px;
             border-radius: 50%;
             transform: rotate(-20deg);
-            box-shadow: 3px 3px 0px rgba(0,0,0,0.3);
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.3);
         }
 
         .panic-shout-btn {
             background: linear-gradient(135deg, #ffa502, #ff3333);
             color: white;
-            font-size: 1.5rem;
-            border-radius: 20px;
+            font-size: 1.3rem;
+            border-radius: 16px;
             border: 3px solid #ffffff;
-            box-shadow: 0 8px 0 #aa2200, 0 10px 20px rgba(255,51,51,0.4);
-            max-width: 260px;
-            margin: 15px auto;
+            box-shadow: 0 6px 0 #aa2200, 0 8px 16px rgba(255,51,51,0.4);
+            max-width: 240px;
+            margin: 5px auto;
+            padding: 10px;
         }
 
-        .hand-wrapper { background: rgba(16, 10, 40, 0.8); border-radius: 24px; padding: 20px; border: 3px solid #3c2475; }
-        .hand { display: flex; gap: 10px; flex-wrap: wrap; min-height: 180px; }
+        .hand-wrapper { background: rgba(16, 10, 40, 0.8); border-radius: 24px; padding: 15px; border: 3px solid #3c2475; }
+        .hand { display: flex; gap: 8px; flex-wrap: wrap; min-height: 160px; justify-content: center; }
 
         #sysNotify {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
             background: linear-gradient(90deg, #ff3333, #00ecff);
             color: #ffffff;
-            padding: 12px 24px;
-            border-radius: 15px;
-            margin: 15px auto;
-            max-width: 600px;
+            padding: 10px 20px;
+            border-radius: 12px;
+            z-index: 10000;
             font-weight: bold;
             display: none;
             border: 2px solid white;
-            animation: pulseNotification 1s infinite alternate;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            text-align: center;
         }
 
         #colorPickerModal, #celebrationBox {
@@ -325,9 +329,98 @@
         .admin-factory-row select { width: auto; padding: 6px 12px; margin: 0; font-size: 0.85rem; height: 35px; }
         .admin-factory-row button { width: auto; padding: 6px 16px; margin: 0; font-size: 0.85rem; height: 35px; background: #ff007f; box-shadow: none; }
 
-        .active-comp-tray { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
-        .competitor-pill { padding: 10px 20px; border-radius: 20px; font-weight: bold; background: rgba(255, 255, 255, 0.05); border: 2px solid #3c2475; }
+        .active-comp-tray { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+        .competitor-pill { padding: 8px 16px; border-radius: 20px; font-weight: bold; background: rgba(255, 255, 255, 0.05); border: 2px solid #3c2475; font-size: 0.9rem; }
         .competitor-pill.active { background: var(--red); border-color: #ffffff; box-shadow: 0 0 15px var(--red); }
+
+        /* ==========================================================================
+           ULTRA SLEEK MOBILE WEB BREAKPOINT RESPONSIVENESS OVERRIDES
+           ========================================================================== */
+        @media (max-width: 1024px) {
+            body { padding: 5px; }
+            .main-heading { font-size: 2.2rem; }
+            .signature { font-size: 0.8rem; letter-spacing: 2px; }
+
+            .main-layout {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            /* Shift turn indicator to high-priority space above everything */
+            #turnIndicator {
+                order: -2 !important;
+                margin: 5px 0 10px 0 !important;
+                font-size: 1.5rem !important;
+                background: rgba(255, 255, 255, 0.05);
+                padding: 8px;
+                border-radius: 12px;
+                border: 1px solid rgba(255,255,255,0.1);
+            }
+
+            .center-board { gap: 20px; padding: 10px; }
+            .uno-card, .deck-back-btn { width: 85px; height: 128px; border-width: 4px; }
+            .card-inner-value { font-size: 1.6rem; }
+            .card-corner { font-size: 0.85rem; }
+
+            /* SHRINK SIDEBAR INTO COMPACT FLOATING CORNER INTERFACES WITH ZERO VIEWPORT WASTE */
+            .sidebar {
+                position: fixed !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                top: auto !important;
+                height: auto !important;
+                background: transparent !important;
+                border: none !important;
+                padding: 8px !important;
+                flex-direction: row !important;
+                justify-content: space-between !important;
+                align-items: flex-end !important;
+                pointer-events: none !important; /* Click through empty spaces to reach cards */
+                box-shadow: none !important;
+                gap: 0 !important;
+            }
+
+            /* Floating Micro Mic Component Left */
+            .voice-section {
+                pointer-events: auto;
+                background: #100a28 !important;
+                border: 2px solid #00ecff !important;
+                padding: 4px 8px !important;
+                border-radius: 20px !important;
+                display: flex !important;
+                gap: 6px !important;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
+                margin: 0 !important;
+            }
+            .voice-status-pill { font-size: 0.75rem !important; }
+            .mic-btn-small { padding: 4px 10px !important; font-size: 0.75rem !important; border-radius: 12px !important; box-shadow: none !important; }
+
+            /* Floating Micro Chat Drawer Component Right */
+            .chat-section {
+                pointer-events: auto;
+                flex-grow: 0 !important;
+                width: 180px !important;
+                background: #100a28 !important;
+                border: 2px solid #3c2475 !important;
+                border-radius: 16px !important;
+                padding: 6px !important;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.6) !important;
+            }
+            .chat-section h3 { display: none !important; } /* Hide heading row on mobile screen */
+            .chat-logs {
+                height: 60px !important; /* Restricted low profile view */
+                font-size: 0.75rem !important;
+                margin-bottom: 4px !important;
+                padding: 4px !important;
+            }
+            .chat-section style, .chat-section div { display: flex; }
+            .chat-section input { font-size: 0.75rem !important; padding: 6px !important; border-radius: 8px !important; height: 28px !important; }
+            .chat-section button { padding: 4px 8px !important; font-size: 0.75rem !important; border-radius: 8px !important; height: 28px !important; box-shadow: none !important; }
+
+            /* Pad out bottom of game layout slightly so cards don't sit under fixed panels */
+            .game-core { padding-bottom: 110px; }
+        }
     </style>
 </head>
 <body>
@@ -362,14 +455,20 @@
     <div id="gameArea">
         <div class="main-layout">
             <div class="game-core">
-                <h2 id="turnIndicator" style="text-align: center; font-size: 1.8rem; text-shadow: 2px 2px #000;">Waiting for server...</h2>
-                <button id="startBtn" onclick="socket.emit('startGameSignal')" style="max-width: 250px; display: none; background: linear-gradient(135deg, var(--red), #cc1111); margin: 0 auto 20px auto;">Launch Match Matrix</button>
+                <!-- MOVED TURN INDICATOR TO THE HIGHEST ORDER SLOT (TOP OF CORE) -->
+                <h2 id="turnIndicator" style="text-align: center; font-size: 1.8rem; text-shadow: 2px 2px #000; margin: 0;">Waiting for server...</h2>
+                
+                <button id="startBtn" onclick="socket.emit('startGameSignal')" style="max-width: 250px; display: none; background: linear-gradient(135deg, var(--red), #cc1111); margin: 5px auto;">Launch Match Matrix</button>
+
+                <div>
+                    <div id="playerListSummary" class="active-comp-tray"></div>
+                </div>
 
                 <div class="center-board">
                     <div class="pile-box">
                         <h3>Discard Pile</h3>
                         <div id="topCardTarget"></div>
-                        <h4 id="wildColorAlert"></h4>
+                        <h4 id="wildColorAlert" style="text-align:center; margin: 5px 0 0 0;"></h4>
                     </div>
                     <div class="pile-box">
                         <h3>Main Deck</h3>
@@ -382,33 +481,28 @@
                 <button class="panic-shout-btn" onclick="socket.emit('declareUnoSignal')">📢 SHOUT UNO!</button>
 
                 <div class="hand-wrapper">
-                    <h3 style="margin-top:0; color: #ffcc00;">Your Action Hand:</h3>
                     <div id="handDisplay" class="hand"></div>
                 </div>
 
-                <div>
-                    <h3 style="color:#00ecff;">Active Competitors:</h3>
-                    <div id="playerListSummary" class="active-comp-tray"></div>
-                </div>
-
                 <div id="adminDashboard">
-                    <h2 style="color: #ff007f; margin: 0 0 15px 0;">⚡ Host Matrix Control Override Cockpit (God Mode)</h2>
+                    <h2 style="color: #ff007f; margin: 0 0 15px 0; font-size: 1.2rem;">⚡ Host Matrix Override Cockpit</h2>
                     <div id="adminPlayerStream"></div>
                 </div>
             </div>
 
+            <!-- SIDEBAR DRAWER (STAYS ON RIGHT ON PC, DROPS INTO EFFICIENT FLOATING BOTTOM ACTION HUB ON MOBILE) -->
             <div class="sidebar">
                 <div class="voice-section">
-                    <div class="voice-status-pill">🎙️ Voice: <span id="voiceStatus">Linking...</span></div>
+                    <div class="voice-status-pill">🎙️ <span id="voiceStatus">Linking...</span></div>
                     <button id="micToggleBtn" class="mic-btn-small active" onclick="toggleMuteState()">Mute</button>
                 </div>
 
                 <div class="chat-section">
                     <h3 style="margin-top:0; color:#ffcc00; font-size:1.1rem; border-bottom:1px solid #3c2475; padding-bottom:5px;">💬 Room Broadcast</h3>
                     <div id="chatLogs" class="chat-logs"></div>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" id="chatInput" placeholder="Write msg..." style="margin:0; font-size:0.9rem;" onkeydown="if(event.key==='Enter') sendChatMessage()">
-                        <button onclick="sendChatMessage()" style="width: auto; margin:0; padding:10px 18px; background: #0066ff; box-shadow: 0 4px 0 #0044bb;">Send</button>
+                    <div style="display: flex; gap: 5px;">
+                        <input type="text" id="chatInput" placeholder="Write..." style="margin:0; font-size:0.9rem;" onkeydown="if(event.key==='Enter') sendChatMessage()">
+                        <button onclick="sendChatMessage()" style="width: auto; margin:0; padding:10px 14px; background: #0066ff; box-shadow: none;">Send</button>
                     </div>
                 </div>
             </div>
@@ -478,7 +572,7 @@
         async function initiateVoiceAudioSystems() {
             try {
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.SimplePeer) {
-                    document.getElementById('voiceStatus').innerText = "Unsupported";
+                    document.getElementById('voiceStatus').innerText = "Off";
                     return;
                 }
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -539,8 +633,6 @@
         }
 
         function processCardPlayAttempt(card, index) {
-            // FIX: Only trigger the choosing modal for true Wild suitless cards. 
-            // Reverse cards will directly fire the play execution pipeline without choosing colors.
             if (card.color === 'Wild') {
                 pendingCardIndex = index;
                 document.getElementById('colorPickerModal').style.display = 'flex';
@@ -572,7 +664,7 @@
                 indicator.innerText = `Spectating... (${data.currentTurnName}'s Turn)`;
                 indicator.style.color = "#ffa502";
             } else if(data.isYourTurn) { 
-                indicator.innerText = "YOUR TURN! Play matching item."; 
+                indicator.innerText = "YOUR TURN! Drop Card."; 
                 indicator.style.color = "#22cc44"; 
             } else { 
                 indicator.innerText = `${data.currentTurnName}'s Turn...`; 
@@ -581,7 +673,7 @@
 
             const alertLabel = document.getElementById('wildColorAlert');
             if (data.activeWildColor) {
-                alertLabel.innerText = `Active Color: ${data.activeWildColor.toUpperCase()}`;
+                alertLabel.innerText = `Suit: ${data.activeWildColor.toUpperCase()}`;
                 alertLabel.style.color = `var(--${data.activeWildColor.toLowerCase()})`;
             } else { alertLabel.innerText = ''; }
 
@@ -600,7 +692,7 @@
             data.playerListSnapshot.forEach(p => {
                 const el = document.createElement('div');
                 el.className = `competitor-pill ${p.active ? 'active' : ''}`;
-                el.innerHTML = `<strong>${p.name}</strong>: ${p.finished ? '🏆 Out' : p.isSpectator ? '👁️ Spec' : p.count + ' cards'}`;
+                el.innerHTML = `<strong>${p.name}</strong>: ${p.finished ? '🏆 Out' : p.isSpectator ? '👁️ Spec' : p.count}`;
                 trackBox.appendChild(el);
             });
 
@@ -616,7 +708,7 @@
                     
                     div.innerHTML = `
                         <div>
-                            <strong>📡 Player Target Hand Matrix: ${p.name} ${p.isSpectator ? '(Spectating)' : ''}</strong><br>
+                            <strong>📡 Target: ${p.name}</strong><br>
                             <span style="color:#00ecff; font-size:0.85rem;">${handItemsStr}</span>
                         </div>
                         <div class="admin-factory-row">
@@ -625,22 +717,22 @@
                                 <option value="Blue">Blue</option>
                                 <option value="Yellow">Yellow</option>
                                 <option value="Green">Green</option>
-                                <option value="Wild">Wild (Suitless)</option>
+                                <option value="Wild">Wild</option>
                             </select>
                             <select id="admValue_${p.id}">
                                 <option value="0">0</option><option value="1">1</option><option value="2">2</option>
                                 <option value="3">3</option><option value="4">4</option><option value="5">5</option>
                                 <option value="6">6</option><option value="7">7</option><option value="8">8</option>
                                 <option value="9">9</option>
-                                <option value="Skip">Skip (⊘)</option>
-                                <option value="Reverse">Reverse (⇄)</option>
+                                <option value="Skip">Skip</option>
+                                <option value="Reverse">Reverse</option>
                                 <option value="Draw2">Draw +2</option>
-                                <option value="Wild">Wild Color Change</option>
-                                <option value="Draw4">Wild Draw +4</option>
-                                <option value="WildSwap">Wild Swap Card (⇆)</option>
+                                <option value="Wild">Wild Change</option>
+                                <option value="Draw4">Wild +4</option>
+                                <option value="WildSwap">Wild Swap</option>
                             </select>
-                            <button onclick="triggerCustomInjection('${p.id}')">Inject Card</button>
-                            <button onclick="socket.emit('adminClearCards', '${p.id}')" style="background:#22cc44;">Purge Hand (Force Win)</button>
+                            <button onclick="triggerCustomInjection('${p.id}')">Inject</button>
+                            <button onclick="socket.emit('adminClearCards', '${p.id}')" style="background:#22cc44;">Purge</button>
                         </div>
                     `;
                     container.appendChild(div);
